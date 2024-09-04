@@ -40,7 +40,8 @@ void handle_cmd_status(gc_cmd56_state* state, src_packet_header* packet, dst_pac
 void handle_vita_authenticity_check(gc_cmd56_state* state, src_packet_header* packet, dst_packet_header* packet_response) {
 	PACKET_RESPONSE_START(response, packet, packet_response);
 	char vita_authenticity_proof[0x30];
-	
+	char challenge[0x20];
+
 	decrypt_with_master_key(state->master_key, vita_authenticity_proof, packet->data, sizeof(vita_authenticity_proof));
 	LOG("VITA_AUTHENTICITY_PROOF: ");
 	LOG_BUFFER(vita_authenticity_proof, sizeof(vita_authenticity_proof));
@@ -49,7 +50,12 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, src_packet_header* pa
 	LOG("secondary_key0: ");
 	LOG_BUFFER(state->secondary_key0, sizeof(state->secondary_key0));
 
-	if (memcmp(state->cart_random, vita_authenticity_proof + 0x10, sizeof(state->cart_random)) == 0) {
+	// caclulate challenge bytes ...
+	memcpy(challenge, state->cart_random, sizeof(challenge));
+	challenge[0]    |= 0x80;
+	challenge[0x10] |= 0x80;
+
+	if (memcmp(challenge, vita_authenticity_proof + 0x10, sizeof(challenge)) == 0) {
 		LOG("Authenticated as real PSVita.");
 		state->cart_status = ALL_OK;
 	}
@@ -117,7 +123,7 @@ void handle_klic_part_and_cmac_signature(gc_cmd56_state* state, src_packet_heade
 	encrypt_with_master_key(state->secondary_key0, response->data, response->data, 0x30);
 
 	LOG("klic_key_partial: ");
-	LOG_BUFFER(klic_key_partial, sizeof(klic_key_partial));
+	LOG_BUFFER(state->klic_key_partial, sizeof(state->klic_key_partial));
 
 	// aes-128-cmac the whole thing
 	memcpy(cmac_input, &response->response_size, 0x3);
@@ -173,7 +179,7 @@ void handle_vita_random(gc_cmd56_state* state, src_packet_header* packet, dst_pa
 	derive_master_key(state->master_key, state->cart_random, state->key_id);
 
 	LOG("Master Key: ");
-	LOG_BUFFER(state->master_key, sizeof(master_key));
+	LOG_BUFFER(state->master_key, sizeof(state->master_key));
 
 	memcpy(response->data + 0x10, vita_random, sizeof(vita_random));
 
