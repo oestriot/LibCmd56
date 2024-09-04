@@ -51,11 +51,13 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
-*.tlog
 
+# visual studio
+
+*.tlog
 *.user
 *.obj
 *.vs/*
-Release/*
-Debug/*
-x64/*
+
+
+build/
