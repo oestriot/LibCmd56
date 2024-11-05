@@ -3,7 +3,8 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include "aes.h"
 
-void aes_cmac(uint8_t *input, unsigned long length, uint8_t *key, uint8_t *mac_value);
+void aes_cmac(AesContext* ctx, void *input, size_t length, uint8_t *mac_value);
 
 #endif

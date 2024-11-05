@@ -2,6 +2,7 @@
 #define GC_H 1
 #include <stdint.h>
 #include "compiler_defs.h"
+#include "crypto/aes.h"
 
 typedef struct gc_cmd56_state {
     // game specific keys, used to derive the rif key,
@@ -12,8 +13,8 @@ typedef struct gc_cmd56_state {
     // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
     // and 0x308 (only on RETAIL_KEY_ID) 
     char cart_random[0x20];
-    char master_key[0x10];
-    char secondary_key0[0x10];
+    AesContext master_key;
+    AesContext secondary_key0;
 
     // cart lock status, unlocked after successful VITA_AUTHENTICITY_CHECK
     uint8_t cart_status;

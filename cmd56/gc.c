@@ -42,13 +42,15 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, src_packet_header* pa
 	char vita_authenticity_proof[0x30];
 	char challenge[0x20];
 
-	decrypt_with_master_key(state->master_key, vita_authenticity_proof, packet->data, sizeof(vita_authenticity_proof));
+	decrypt_cbc_zero_iv(&state->master_key, vita_authenticity_proof, packet->data, sizeof(vita_authenticity_proof));
 	LOG("VITA_AUTHENTICITY_PROOF: ");
 	LOG_BUFFER(vita_authenticity_proof, sizeof(vita_authenticity_proof));
 
-	memcpy(state->secondary_key0, vita_authenticity_proof, sizeof(state->secondary_key0));
+	char secondary_key0[0x10];
+	memcpy(secondary_key0, vita_authenticity_proof, sizeof(secondary_key0));
 	LOG("secondary_key0: ");
-	LOG_BUFFER(state->secondary_key0, sizeof(state->secondary_key0));
+	LOG_BUFFER(secondary_key0, sizeof(secondary_key0));
+	aesInit(&state->secondary_key0, secondary_key0, sizeof(secondary_key0));
 
 	// caclulate challenge bytes ...
 	memcpy(challenge, state->cart_random, sizeof(challenge));
@@ -104,7 +106,7 @@ void handle_challenge(gc_cmd56_state* state, src_packet_header* packet, dst_pack
 	LOG("Plaintext: ");
 	LOG_BUFFER(response->data, 0x40);
 
-	encrypt_with_master_key(state->secondary_key0, response->data, response->data, 0x40);
+	encrypt_cbc_zero_iv(&state->secondary_key0, response->data, response->data, 0x40);
 
 }
 void handle_klic_part_and_cmac_signature(gc_cmd56_state* state, src_packet_header* packet, dst_packet_header* packet_response) {
@@ -113,14 +115,14 @@ void handle_klic_part_and_cmac_signature(gc_cmd56_state* state, src_packet_heade
 	char cmac_input[0x40];
 
 	// decrypt challenge value
-	decrypt_with_master_key(state->secondary_key0, response->data, packet->data, 0x20);
+	decrypt_cbc_zero_iv(&state->secondary_key0, response->data, packet->data, 0x20);
 
 	LOG("challenge value: ");
 	LOG_BUFFER(response->data, 0x20);
 
 	// copy klic part of key
 	memcpy(response->data + 0x10, state->klic_key_partial, sizeof(state->klic_key_partial));
-	encrypt_with_master_key(state->secondary_key0, response->data, response->data, 0x30);
+	encrypt_cbc_zero_iv(&state->secondary_key0, response->data, response->data, 0x30);
 
 	LOG("klic_key_partial: ");
 	LOG_BUFFER(state->klic_key_partial, sizeof(state->klic_key_partial));
@@ -130,7 +132,7 @@ void handle_klic_part_and_cmac_signature(gc_cmd56_state* state, src_packet_heade
 	memset(cmac_input + 0x3, 0x00, 0xD);
 	memcpy(cmac_input + 0x10, response->data, 0x30);
 
-	aes_cmac(cmac_input, sizeof(cmac_input), state->secondary_key0, response->data + 0x30);
+	aes_cmac(&state->secondary_key0, cmac_input, sizeof(cmac_input), response->data + 0x30);
 	
 	LOG("CMAC: ");
 	LOG_BUFFER(response->data + 0x30, 0x10);
@@ -155,14 +157,14 @@ void handle_rif_buf_part_hash_key(gc_cmd56_state* state, src_packet_header* pack
 	LOG_BUFFER(response->data, 0x40);
 
 	// encrypt the response
-	encrypt_with_master_key(state->secondary_key0, response->data, response->data, 0x40);
+	encrypt_cbc_zero_iv(&state->secondary_key0, response->data, response->data, 0x40);
 
 	// aes-128-cmac the whole thing
 	memcpy(cmac_input, &response->response_size, 0x3);
 	memset(cmac_input + 0x3, 0x00, 0xD);
 	memcpy(cmac_input + 0x10, response->data, 0x40);
 
-	aes_cmac(cmac_input, sizeof(cmac_input), state->secondary_key0, response->data + 0x40);
+	aes_cmac(&state->secondary_key0, cmac_input, sizeof(cmac_input), response->data + 0x40);
 	LOG("CMAC: ");
 	LOG_BUFFER(response->data + 0x40, 0x10);
 }
@@ -176,18 +178,19 @@ void handle_vita_random(gc_cmd56_state* state, src_packet_header* packet, dst_pa
 	LOG("Vita Random: ");
 	LOG_BUFFER(vita_random, sizeof(vita_random));
 
-	derive_master_key(state->master_key, state->cart_random, state->key_id);
+	char master_key[0x10];
+	derive_master_key(master_key, state->cart_random, state->key_id);
 
 	LOG("Master Key: ");
-	LOG_BUFFER(state->master_key, sizeof(state->master_key));
+	LOG_BUFFER(master_key, sizeof(master_key));
+	aesInit(&state->master_key, master_key, sizeof(master_key));
 
 	memcpy(response->data + 0x10, vita_random, sizeof(vita_random));
 
 	LOG("Plaintext: ");
 	LOG_BUFFER(response->data, 0x20);
 
-	encrypt_with_master_key(state->master_key, response->data, response->data, 0x20);
-
+	encrypt_cbc_zero_iv(&state->master_key, response->data, response->data, 0x20);
 }
 
 
