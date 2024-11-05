@@ -166,9 +166,6 @@ void handle_rif_buf_part_hash_key(gc_cmd56_state* state, src_packet_header* pack
 	LOG("plaintext response: ");
 	LOG_BUFFER(response->data, 0x40);
 
-	// encrypt the response
-	encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x40);
-
 	// aes-128-cmac the whole thing
 	cmac_body(state, response, 0x40);
 }
