@@ -20,7 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="crypto\aes.c" />
-    <ClCompile Include="crypto\aes_cbc.c" />
     <ClCompile Include="crypto\aes_cmac.c" />
     <ClCompile Include="f00d_emu.c" />
     <ClCompile Include="gc.c" />
@@ -28,7 +27,6 @@
   <ItemGroup>
     <ClInclude Include="compiler_defs.h" />
     <ClInclude Include="crypto\aes.h" />
-    <ClInclude Include="crypto\aes_cbc.h" />
     <ClInclude Include="crypto\aes_cmac.h" />
     <ClInclude Include="f00d_emu.h" />
     <ClInclude Include="gc.h" />

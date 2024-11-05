@@ -1,22 +1,9 @@
 #ifndef GC_H
 #define GC_H 1
-#include <stdint.h>
 #include "compiler_defs.h"
 #include "crypto/aes.h"
 
 typedef struct gc_cmd56_state {
-    // game specific keys, used to derive the rif key,
-    // which is used to decrypt the game klicensee.
-    uint8_t rif_key_partial[0x20];
-    uint8_t klic_key_partial[0x20];
-
-    // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
-    // and 0x308 (only on RETAIL_KEY_ID) 
-    uint8_t cart_random[0x20];
-    uint8_t vita_random[0x20];
-    AesContext master_key;
-    AesContext secondary_key0;
-
     // cart lock status, unlocked after successful VITA_AUTHENTICITY_CHECK
     uint8_t cart_status;
 
@@ -30,10 +17,22 @@ typedef struct gc_cmd56_state {
     // There also exists a PROTOTYPE_KEY_ID2 and 3,0x8002 and 0x8003, 
     // however these are blacklisted as of fw 1.04.
     uint16_t key_id;
+
+    // game specific keys, used to derive the rif key,
+    // which is used to decrypt the game klicensee.
+    uint8_t rif_key_partial[0x20];
+    uint8_t klic_key_partial[0x20];
+
+    // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
+    // and 0x308 (only on RETAIL_KEY_ID) 
+    uint8_t cart_random[0x20];
+    uint8_t vita_random[0x20];
+    AES_ctx master_key;
+    AES_ctx secondary_key0;
 } gc_cmd56_state;
 
 
-PACK(typedef struct src_packet_header {
+typedef struct src_packet_header {
     uint8_t key[0x20];
     uint32_t response_code;
     uint32_t data_size;
@@ -42,15 +41,19 @@ PACK(typedef struct src_packet_header {
     uint8_t unknown_host_value;
     uint8_t additional_data_size;
     uint8_t data[0x1d1];
-}) src_packet_header;
+} src_packet_header;
 
-PACK(typedef  struct dst_packet_header {
+_Static_assert(sizeof(src_packet_header) == 512);
+
+typedef struct dst_packet_header {
     uint32_t response_code;
     uint32_t additional_data_size;
     uint16_t response_size;
     uint8_t error_code;
     uint8_t data[0x1f5];
-}) dst_packet_header;
+} dst_packet_header;
+
+_Static_assert(sizeof(dst_packet_header) == 512);
 
 enum cart_status {
     READ_WRITE_LOCK = 0xFF,
@@ -69,10 +72,10 @@ enum PACKET_SUB_COMMANDS {
 };
 
 // exposed functions:
-void gc_cmd56_init(gc_cmd56_state* state, const char* rif_part, const char* klic_part);
+void gc_cmd56_init(gc_cmd56_state* state, const uint8_t* rif_part, const uint8_t* klic_part);
 void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id);
-void gc_cmd56_update_keys(gc_cmd56_state* state, const char* rif_part, const char* klic_part);
-void gc_cmd56_run_in_place(gc_cmd56_state* state, char* buffer);
-void gc_cmd56_run(gc_cmd56_state* state, const char* buffer, char* response);
+void gc_cmd56_update_keys(gc_cmd56_state* state, const uint8_t* rif_part, const uint8_t* klic_part);
+void gc_cmd56_run_in_place(gc_cmd56_state* state, uint8_t* buffer);
+void gc_cmd56_run(gc_cmd56_state* state, const uint8_t* buffer, uint8_t* response);
 
 #endif
