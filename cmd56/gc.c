@@ -237,12 +237,12 @@ void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id) {
 	state->key_id = key_id;
 }
 
-void gc_cmd56_update_keys(gc_cmd56_state* state, char* rif_part, char* klic_part) {
+void gc_cmd56_update_keys(gc_cmd56_state* state, const char* rif_part, const char* klic_part) {
 	memcpy(state->rif_key_partial, rif_part, sizeof(state->rif_key_partial));
 	memcpy(state->klic_key_partial, klic_part, sizeof(state->klic_key_partial));
 }
 
-void gc_cmd56_init(gc_cmd56_state* state, char* rif_part, char* klic_part) {
+void gc_cmd56_init(gc_cmd56_state* state, const char* rif_part, const char* klic_part) {
 	memset(state, 0x00, sizeof(gc_cmd56_state));
 
 	// lock "cart" for reading/writing
@@ -261,6 +261,6 @@ void gc_cmd56_run_in_place(gc_cmd56_state* state, char* buffer) {
 	memcpy(buffer, cmd56_packet_response, sizeof(cmd56_packet_response));
 }
 
-void gc_cmd56_run(gc_cmd56_state* state, char* buffer, char* response) {
+void gc_cmd56_run(gc_cmd56_state* state, const char* buffer, char* response) {
 	handle_packet(state, (src_packet_header*)buffer, (dst_packet_header*)response);
 }
