@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "../cmd56/gc.h"
 
 FILE* vRecv = NULL;

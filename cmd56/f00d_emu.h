@@ -13,7 +13,7 @@ enum KEY_IDS {
 
 void decrypt_cbc_zero_iv(AesContext* aes_ctx, void* output, void* data, size_t dataLen);
 void encrypt_cbc_zero_iv(AesContext* aes_ctx, void* output, void* data, size_t dataLen);
-void derive_master_key(char* masterKey_out, char* cart_random, int key_id);
-void decrypt_secondary_key0(char* cart_random, int key_id, char* vita_authenticity_key, char* secondary_key0);
+void derive_master_key(uint8_t* masterKey_out, uint8_t* cart_random, int key_id);
+void decrypt_secondary_key0(uint8_t* cart_random, int key_id, uint8_t* vita_authenticity_key, uint8_t* secondary_key0);
 
 #endif

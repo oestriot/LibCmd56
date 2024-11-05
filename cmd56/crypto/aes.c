@@ -192,106 +192,106 @@ static inline uint32_t rol32(uint32_t word, int32_t shift)
   * @param[in] keyLen Length of the key
   * @return Error code
   **/
-  
-uint32_t aesInit(AesContext *context, const void *key,
-    size_t keyLen)
+
+uint32_t aesInit(AesContext *context, const uint8_t *key,
+	size_t keyLen)
  {
-    uint32_t i;
-    uint32_t temp;
-    size_t keyScheduleSize;
-  
-    //Check parameters
-    if(context == NULL || key == NULL)
-       return -1;
-  
-    //Check the length of the key
-    if(keyLen == 16)
-    {
-       //10 rounds are required for 128-bit key
-       context->nr = 10;
-    }
-    else if(keyLen == 24)
-    {
-       //12 rounds are required for 192-bit key
-       context->nr = 12;
-    }
-    else if(keyLen == 32)
-    {
-       //14 rounds are required for 256-bit key
-       context->nr = 14;
-    }
-    else
-    {
-       //Report an error
-       return -1;
-    }
-  
-    //Determine the number of 32-bit words in the key
-    keyLen /= 4;
-  
-    //Copy the original key
-    for(i = 0; i < keyLen; i++)
-    {
-       context->ek[i] = LOAD32LE((uint8_t*)key + (i * 4));
-    }
-  
-    //The size of the key schedule depends on the number of rounds
-    keyScheduleSize = 4 * (context->nr + 1);
-  
-    //Generate the key schedule (encryption)
-    for(i = keyLen; i < keyScheduleSize; i++)
-    {
-       //Save previous word
-       temp = context->ek[i - 1];
-  
-       //Apply transformation
-       if((i % keyLen) == 0)
-       {
-          context->ek[i] = sbox[(temp >> 8) & 0xFF];
-          context->ek[i] |= (sbox[(temp >> 16) & 0xFF] << 8);
-          context->ek[i] |= (sbox[(temp >> 24) & 0xFF] << 16);
-          context->ek[i] |= (sbox[temp & 0xFF] << 24);
-          context->ek[i] ^= rcon[i / keyLen];
-       }
-       else if(keyLen > 6 && (i % keyLen) == 4)
-       {
-          context->ek[i] = sbox[temp & 0xFF];
-          context->ek[i] |= (sbox[(temp >> 8) & 0xFF] << 8);
-          context->ek[i] |= (sbox[(temp >> 16) & 0xFF] << 16);
-          context->ek[i] |= (sbox[(temp >> 24) & 0xFF] << 24);
-       }
-       else
-       {
-          context->ek[i] = temp;
-       }
-  
-       //Update the key schedule
-       context->ek[i] ^= context->ek[i - keyLen];
-    }
-  
-    //Generate the key schedule (decryption)
-    for(i = 0; i < keyScheduleSize; i++)
-    {
-       //Apply the InvMixColumns transformation to all round keys but the first
-       //and the last
-       if(i < 4 || i >= (keyScheduleSize - 4))
-       {
-          context->dk[i] = context->ek[i];
-       }
-       else
-       {
-          context->dk[i] = td[sbox[context->ek[i] & 0xFF]];
-          temp = td[sbox[(context->ek[i] >> 8) & 0xFF]];
-          context->dk[i] ^= ROL32(temp, 8);
-          temp = td[sbox[(context->ek[i] >> 16) & 0xFF]];
-          context->dk[i] ^= ROL32(temp, 16);
-          temp = td[sbox[(context->ek[i] >> 24) & 0xFF]];
-          context->dk[i] ^= ROL32(temp, 24);
-       }
-    }
-  
-    //No error to report
-    return 0;
+	uint32_t i;
+	uint32_t temp;
+	size_t keyScheduleSize;
+
+	//Check parameters
+	if(context == NULL || key == NULL)
+		return -1;
+
+	//Check the length of the key
+	if(keyLen == 16)
+	{
+		//10 rounds are required for 128-bit key
+		context->nr = 10;
+	}
+	else if(keyLen == 24)
+	{
+		//12 rounds are required for 192-bit key
+		context->nr = 12;
+	}
+	else if(keyLen == 32)
+	{
+		//14 rounds are required for 256-bit key
+		context->nr = 14;
+	}
+	else
+	{
+		//Report an error
+		return -1;
+	}
+
+	//Determine the number of 32-bit words in the key
+	keyLen /= 4;
+
+	//Copy the original key
+	for(i = 0; i < keyLen; i++)
+	{
+		context->ek[i] = LOAD32LE(key + (i * 4));
+	}
+
+	//The size of the key schedule depends on the number of rounds
+	keyScheduleSize = 4 * (context->nr + 1);
+
+	//Generate the key schedule (encryption)
+	for(i = keyLen; i < keyScheduleSize; i++)
+	{
+		//Save previous word
+		temp = context->ek[i - 1];
+
+		//Apply transformation
+		if((i % keyLen) == 0)
+		{
+			context->ek[i] = sbox[(temp >> 8) & 0xFF];
+			context->ek[i] |= (sbox[(temp >> 16) & 0xFF] << 8);
+			context->ek[i] |= (sbox[(temp >> 24) & 0xFF] << 16);
+			context->ek[i] |= (sbox[temp & 0xFF] << 24);
+			context->ek[i] ^= rcon[i / keyLen];
+		}
+		else if(keyLen > 6 && (i % keyLen) == 4)
+		{
+			context->ek[i] = sbox[temp & 0xFF];
+			context->ek[i] |= (sbox[(temp >> 8) & 0xFF] << 8);
+			context->ek[i] |= (sbox[(temp >> 16) & 0xFF] << 16);
+			context->ek[i] |= (sbox[(temp >> 24) & 0xFF] << 24);
+		}
+		else
+		{
+			context->ek[i] = temp;
+		}
+
+		//Update the key schedule
+		context->ek[i] ^= context->ek[i - keyLen];
+	}
+
+	//Generate the key schedule (decryption)
+	for(i = 0; i < keyScheduleSize; i++)
+	{
+		//Apply the InvMixColumns transformation to all round keys but the first
+		//and the last
+		if(i < 4 || i >= (keyScheduleSize - 4))
+		{
+			context->dk[i] = context->ek[i];
+		}
+		else
+		{
+			context->dk[i] = td[sbox[context->ek[i] & 0xFF]];
+			temp = td[sbox[(context->ek[i] >> 8) & 0xFF]];
+			context->dk[i] ^= ROL32(temp, 8);
+			temp = td[sbox[(context->ek[i] >> 16) & 0xFF]];
+			context->dk[i] ^= ROL32(temp, 16);
+			temp = td[sbox[(context->ek[i] >> 24) & 0xFF]];
+			context->dk[i] ^= ROL32(temp, 24);
+		}
+	}
+
+	//No error to report
+	return 0;
  }
   
   
@@ -305,104 +305,104 @@ uint32_t aesInit(AesContext *context, const void *key,
  void aesEncryptBlock(AesContext *context, const uint8_t*input,
     uint8_t *output)
  {
-    uint32_t i;
-    uint32_t s0;
-    uint32_t s1;
-    uint32_t s2;
-    uint32_t s3;
-    uint32_t t0;
-    uint32_t t1;
-    uint32_t t2;
-    uint32_t t3;
-    uint32_t temp;
-  
-    //Copy the plaintext to the state array
-    s0 = LOAD32LE(input + 0);
-    s1 = LOAD32LE(input + 4);
-    s2 = LOAD32LE(input + 8);
-    s3 = LOAD32LE(input + 12);
-  
-    //Initial round key addition
-    s0 ^= context->ek[0];
-    s1 ^= context->ek[1];
-    s2 ^= context->ek[2];
-    s3 ^= context->ek[3];
-  
-    //The number of rounds depends on the key length
-    for(i = 1; i < context->nr; i++)
-    {
-       //Apply round function
-       t0 = te[s0 & 0xFF];
-       temp = te[(s1 >> 8) & 0xFF];
-       t0 ^= ROL32(temp, 8);
-       temp = te[(s2 >> 16) & 0xFF];
-       t0 ^= ROL32(temp, 16);
-       temp = te[(s3 >> 24) & 0xFF];
-       t0 ^= ROL32(temp, 24);
-  
-       t1 = te[s1 & 0xFF];
-       temp = te[(s2 >> 8) & 0xFF];
-       t1 ^= ROL32(temp, 8);
-       temp = te[(s3 >> 16) & 0xFF];
-       t1 ^= ROL32(temp, 16);
-       temp = te[(s0 >> 24) & 0xFF];
-       t1 ^= ROL32(temp, 24);
-  
-       t2 = te[s2 & 0xFF];
-       temp = te[(s3 >> 8) & 0xFF];
-       t2 ^= ROL32(temp, 8);
-       temp = te[(s0 >> 16) & 0xFF];
-       t2 ^= ROL32(temp, 16);
-       temp = te[(s1 >> 24) & 0xFF];
-       t2 ^= ROL32(temp, 24);
-  
-       t3 = te[s3 & 0xFF];
-       temp = te[(s0 >> 8) & 0xFF];
-       t3 ^= ROL32(temp, 8);
-       temp = te[(s1 >> 16) & 0xFF];
-       t3 ^= ROL32(temp, 16);
-       temp = te[(s2 >> 24) & 0xFF];
-       t3 ^= ROL32(temp, 24);
-  
-       //Round key addition
-       s0 = t0 ^ context->ek[i * 4];
-       s1 = t1 ^ context->ek[i * 4 + 1];
-       s2 = t2 ^ context->ek[i * 4 + 2];
-       s3 = t3 ^ context->ek[i * 4 + 3];
-    }
-  
-    //The last round differs slightly from the first rounds
-    t0 = sbox[s0 & 0xFF];
-    t0 |= sbox[(s1 >> 8) & 0xFF] << 8;
-    t0 |= sbox[(s2 >> 16) & 0xFF] << 16;
-    t0 |= sbox[(s3 >> 24) & 0xFF] << 24;
-  
-    t1 = sbox[s1 & 0xFF];
-    t1 |= sbox[(s2 >> 8) & 0xFF] << 8;
-    t1 |= sbox[(s3 >> 16) & 0xFF] << 16;
-    t1 |= sbox[(s0 >> 24) & 0xFF] << 24;
-  
-    t2 = sbox[s2 & 0xFF];
-    t2 |= sbox[(s3 >> 8) & 0xFF] << 8;
-    t2 |= sbox[(s0 >> 16) & 0xFF] << 16;
-    t2 |= sbox[(s1 >> 24) & 0xFF] << 24;
-  
-    t3 = sbox[s3 & 0xFF];
-    t3 |= sbox[(s0 >> 8) & 0xFF] << 8;
-    t3 |= sbox[(s1 >> 16) & 0xFF] << 16;
-    t3 |= sbox[(s2 >> 24) & 0xFF] << 24;
-  
-    //Last round key addition
-    s0 = t0 ^ context->ek[context->nr * 4];
-    s1 = t1 ^ context->ek[context->nr * 4 + 1];
-    s2 = t2 ^ context->ek[context->nr * 4 + 2];
-    s3 = t3 ^ context->ek[context->nr * 4 + 3];
-  
-    //The final state is then copied to the output
-    STORE32LE(s0, output + 0);
-    STORE32LE(s1, output + 4);
-    STORE32LE(s2, output + 8);
-    STORE32LE(s3, output + 12);
+	uint32_t i;
+	uint32_t s0;
+	uint32_t s1;
+	uint32_t s2;
+	uint32_t s3;
+	uint32_t t0;
+	uint32_t t1;
+	uint32_t t2;
+	uint32_t t3;
+	uint32_t temp;
+
+	//Copy the plaintext to the state array
+	s0 = LOAD32LE(input + 0);
+	s1 = LOAD32LE(input + 4);
+	s2 = LOAD32LE(input + 8);
+	s3 = LOAD32LE(input + 12);
+
+	//Initial round key addition
+	s0 ^= context->ek[0];
+	s1 ^= context->ek[1];
+	s2 ^= context->ek[2];
+	s3 ^= context->ek[3];
+
+	//The number of rounds depends on the key length
+	for(i = 1; i < context->nr; i++)
+	{
+		//Apply round function
+		t0 = te[s0 & 0xFF];
+		temp = te[(s1 >> 8) & 0xFF];
+		t0 ^= ROL32(temp, 8);
+		temp = te[(s2 >> 16) & 0xFF];
+		t0 ^= ROL32(temp, 16);
+		temp = te[(s3 >> 24) & 0xFF];
+		t0 ^= ROL32(temp, 24);
+
+		t1 = te[s1 & 0xFF];
+		temp = te[(s2 >> 8) & 0xFF];
+		t1 ^= ROL32(temp, 8);
+		temp = te[(s3 >> 16) & 0xFF];
+		t1 ^= ROL32(temp, 16);
+		temp = te[(s0 >> 24) & 0xFF];
+		t1 ^= ROL32(temp, 24);
+
+		t2 = te[s2 & 0xFF];
+		temp = te[(s3 >> 8) & 0xFF];
+		t2 ^= ROL32(temp, 8);
+		temp = te[(s0 >> 16) & 0xFF];
+		t2 ^= ROL32(temp, 16);
+		temp = te[(s1 >> 24) & 0xFF];
+		t2 ^= ROL32(temp, 24);
+
+		t3 = te[s3 & 0xFF];
+		temp = te[(s0 >> 8) & 0xFF];
+		t3 ^= ROL32(temp, 8);
+		temp = te[(s1 >> 16) & 0xFF];
+		t3 ^= ROL32(temp, 16);
+		temp = te[(s2 >> 24) & 0xFF];
+		t3 ^= ROL32(temp, 24);
+
+		//Round key addition
+		s0 = t0 ^ context->ek[i * 4];
+		s1 = t1 ^ context->ek[i * 4 + 1];
+		s2 = t2 ^ context->ek[i * 4 + 2];
+		s3 = t3 ^ context->ek[i * 4 + 3];
+	}
+
+	//The last round differs slightly from the first rounds
+	t0 = sbox[s0 & 0xFF];
+	t0 |= sbox[(s1 >> 8) & 0xFF] << 8;
+	t0 |= sbox[(s2 >> 16) & 0xFF] << 16;
+	t0 |= sbox[(s3 >> 24) & 0xFF] << 24;
+
+	t1 = sbox[s1 & 0xFF];
+	t1 |= sbox[(s2 >> 8) & 0xFF] << 8;
+	t1 |= sbox[(s3 >> 16) & 0xFF] << 16;
+	t1 |= sbox[(s0 >> 24) & 0xFF] << 24;
+
+	t2 = sbox[s2 & 0xFF];
+	t2 |= sbox[(s3 >> 8) & 0xFF] << 8;
+	t2 |= sbox[(s0 >> 16) & 0xFF] << 16;
+	t2 |= sbox[(s1 >> 24) & 0xFF] << 24;
+
+	t3 = sbox[s3 & 0xFF];
+	t3 |= sbox[(s0 >> 8) & 0xFF] << 8;
+	t3 |= sbox[(s1 >> 16) & 0xFF] << 16;
+	t3 |= sbox[(s2 >> 24) & 0xFF] << 24;
+
+	//Last round key addition
+	s0 = t0 ^ context->ek[context->nr * 4];
+	s1 = t1 ^ context->ek[context->nr * 4 + 1];
+	s2 = t2 ^ context->ek[context->nr * 4 + 2];
+	s3 = t3 ^ context->ek[context->nr * 4 + 3];
+
+	//The final state is then copied to the output
+	STORE32LE(s0, output + 0);
+	STORE32LE(s1, output + 4);
+	STORE32LE(s2, output + 8);
+	STORE32LE(s3, output + 12);
  }
   
   
@@ -413,104 +413,104 @@ uint32_t aesInit(AesContext *context, const void *key,
   * @param[out] output Plaintext block resulting from decryption
   **/
   
- void aesDecryptBlock(AesContext *context, const uint8_t*input, uint8_t *output)
+ void aesDecryptBlock(AesContext *context, const uint8_t *input, uint8_t *output)
  {
-    uint32_t i;
-    uint32_t s0;
-    uint32_t s1;
-    uint32_t s2;
-    uint32_t s3;
-    uint32_t t0;
-    uint32_t t1;
-    uint32_t t2;
-    uint32_t t3;
-    uint32_t temp;
-  
-    //Copy the ciphertext to the state array
-    s0 = LOAD32LE(input + 0);
-    s1 = LOAD32LE(input + 4);
-    s2 = LOAD32LE(input + 8);
-    s3 = LOAD32LE(input + 12);
-  
-    //Initial round key addition
-    s0 ^= context->dk[context->nr * 4];
-    s1 ^= context->dk[context->nr * 4 + 1];
-    s2 ^= context->dk[context->nr * 4 + 2];
-    s3 ^= context->dk[context->nr * 4 + 3];
-  
-    //The number of rounds depends on the key length
-    for(i = context->nr - 1; i >= 1; i--)
-    {
-       //Apply round function
-       t0 = td[s0 & 0xFF];
-       temp = td[(s3 >> 8) & 0xFF];
-       t0 ^= ROL32(temp, 8);
-       temp = td[(s2 >> 16) & 0xFF];
-       t0 ^= ROL32(temp, 16);
-       temp = td[(s1 >> 24) & 0xFF];
-       t0 ^= ROL32(temp, 24);
-  
-       t1 = td[s1 & 0xFF];
-       temp = td[(s0 >> 8) & 0xFF];
-       t1 ^= ROL32(temp, 8);
-       temp = td[(s3 >> 16) & 0xFF];
-       t1 ^= ROL32(temp, 16);
-       temp = td[(s2 >> 24) & 0xFF];
-       t1 ^= ROL32(temp, 24);
-  
-       t2 = td[s2 & 0xFF];
-       temp = td[(s1 >> 8) & 0xFF];
-       t2 ^= ROL32(temp, 8);
-       temp = td[(s0 >> 16) & 0xFF];
-       t2 ^= ROL32(temp, 16);
-       temp = td[(s3 >> 24) & 0xFF];
-       t2 ^= ROL32(temp, 24);
-  
-       t3 = td[s3 & 0xFF];
-       temp = td[(s2 >> 8) & 0xFF];
-       t3 ^= ROL32(temp, 8);
-       temp = td[(s1 >> 16) & 0xFF];
-       t3 ^= ROL32(temp, 16);
-       temp = td[(s0 >> 24) & 0xFF];
-       t3 ^= ROL32(temp, 24);
-  
-       //Round key addition
-       s0 = t0 ^ context->dk[i * 4];
-       s1 = t1 ^ context->dk[i * 4 + 1];
-       s2 = t2 ^ context->dk[i * 4 + 2];
-       s3 = t3 ^ context->dk[i * 4 + 3];
-    }
-  
-    //The last round differs slightly from the first rounds
-    t0 = isbox[s0 & 0xFF];
-    t0 |= isbox[(s3 >> 8) & 0xFF] << 8;
-    t0 |= isbox[(s2 >> 16) & 0xFF] << 16;
-    t0 |= isbox[(s1 >> 24) & 0xFF] << 24;
-  
-    t1 = isbox[s1 & 0xFF];
-    t1 |= isbox[(s0 >> 8) & 0xFF] << 8;
-    t1 |= isbox[(s3 >> 16) & 0xFF] << 16;
-    t1 |= isbox[(s2 >> 24) & 0xFF] << 24;
-  
-    t2 = isbox[s2 & 0xFF];
-    t2 |= isbox[(s1 >> 8) & 0xFF] << 8;
-    t2 |= isbox[(s0 >> 16) & 0xFF] << 16;
-    t2 |= isbox[(s3 >> 24) & 0xFF] << 24;
-  
-    t3 = isbox[s3 & 0xFF];
-    t3 |= isbox[(s2 >> 8) & 0xFF] << 8;
-    t3 |= isbox[(s1 >> 16) & 0xFF] << 16;
-    t3 |= isbox[(s0 >> 24) & 0xFF] << 24;
-  
-    //Last round key addition
-    s0 = t0 ^ context->dk[0];
-    s1 = t1 ^ context->dk[1];
-    s2 = t2 ^ context->dk[2];
-    s3 = t3 ^ context->dk[3];
-  
-    //The final state is then copied to the output
-    STORE32LE(s0, output + 0);
-    STORE32LE(s1, output + 4);
-    STORE32LE(s2, output + 8);
-    STORE32LE(s3, output + 12);
+	uint32_t i;
+	uint32_t s0;
+	uint32_t s1;
+	uint32_t s2;
+	uint32_t s3;
+	uint32_t t0;
+	uint32_t t1;
+	uint32_t t2;
+	uint32_t t3;
+	uint32_t temp;
+
+	//Copy the ciphertext to the state array
+	s0 = LOAD32LE(input + 0);
+	s1 = LOAD32LE(input + 4);
+	s2 = LOAD32LE(input + 8);
+	s3 = LOAD32LE(input + 12);
+
+	//Initial round key addition
+	s0 ^= context->dk[context->nr * 4];
+	s1 ^= context->dk[context->nr * 4 + 1];
+	s2 ^= context->dk[context->nr * 4 + 2];
+	s3 ^= context->dk[context->nr * 4 + 3];
+
+	//The number of rounds depends on the key length
+	for(i = context->nr - 1; i >= 1; i--)
+	{
+		//Apply round function
+		t0 = td[s0 & 0xFF];
+		temp = td[(s3 >> 8) & 0xFF];
+		t0 ^= ROL32(temp, 8);
+		temp = td[(s2 >> 16) & 0xFF];
+		t0 ^= ROL32(temp, 16);
+		temp = td[(s1 >> 24) & 0xFF];
+		t0 ^= ROL32(temp, 24);
+
+		t1 = td[s1 & 0xFF];
+		temp = td[(s0 >> 8) & 0xFF];
+		t1 ^= ROL32(temp, 8);
+		temp = td[(s3 >> 16) & 0xFF];
+		t1 ^= ROL32(temp, 16);
+		temp = td[(s2 >> 24) & 0xFF];
+		t1 ^= ROL32(temp, 24);
+
+		t2 = td[s2 & 0xFF];
+		temp = td[(s1 >> 8) & 0xFF];
+		t2 ^= ROL32(temp, 8);
+		temp = td[(s0 >> 16) & 0xFF];
+		t2 ^= ROL32(temp, 16);
+		temp = td[(s3 >> 24) & 0xFF];
+		t2 ^= ROL32(temp, 24);
+
+		t3 = td[s3 & 0xFF];
+		temp = td[(s2 >> 8) & 0xFF];
+		t3 ^= ROL32(temp, 8);
+		temp = td[(s1 >> 16) & 0xFF];
+		t3 ^= ROL32(temp, 16);
+		temp = td[(s0 >> 24) & 0xFF];
+		t3 ^= ROL32(temp, 24);
+
+		//Round key addition
+		s0 = t0 ^ context->dk[i * 4];
+		s1 = t1 ^ context->dk[i * 4 + 1];
+		s2 = t2 ^ context->dk[i * 4 + 2];
+		s3 = t3 ^ context->dk[i * 4 + 3];
+	}
+
+	//The last round differs slightly from the first rounds
+	t0 = isbox[s0 & 0xFF];
+	t0 |= isbox[(s3 >> 8) & 0xFF] << 8;
+	t0 |= isbox[(s2 >> 16) & 0xFF] << 16;
+	t0 |= isbox[(s1 >> 24) & 0xFF] << 24;
+
+	t1 = isbox[s1 & 0xFF];
+	t1 |= isbox[(s0 >> 8) & 0xFF] << 8;
+	t1 |= isbox[(s3 >> 16) & 0xFF] << 16;
+	t1 |= isbox[(s2 >> 24) & 0xFF] << 24;
+
+	t2 = isbox[s2 & 0xFF];
+	t2 |= isbox[(s1 >> 8) & 0xFF] << 8;
+	t2 |= isbox[(s0 >> 16) & 0xFF] << 16;
+	t2 |= isbox[(s3 >> 24) & 0xFF] << 24;
+
+	t3 = isbox[s3 & 0xFF];
+	t3 |= isbox[(s2 >> 8) & 0xFF] << 8;
+	t3 |= isbox[(s1 >> 16) & 0xFF] << 16;
+	t3 |= isbox[(s0 >> 24) & 0xFF] << 24;
+
+	//Last round key addition
+	s0 = t0 ^ context->dk[0];
+	s1 = t1 ^ context->dk[1];
+	s2 = t2 ^ context->dk[2];
+	s3 = t3 ^ context->dk[3];
+
+	//The final state is then copied to the output
+	STORE32LE(s0, output + 0);
+	STORE32LE(s1, output + 4);
+	STORE32LE(s2, output + 8);
+	STORE32LE(s3, output + 12);
 }

@@ -16,7 +16,7 @@ void encrypt_cbc_zero_iv(AesContext* aes_ctx, void* output, void* data, size_t d
 	AES_CBC_encrypt(aes_ctx, data, output, dataLen, iv);
 }
 
-void derive_master_key(char* masterKey_out, char* cart_random, int key_id) {
+void derive_master_key(uint8_t* masterKey_out, uint8_t* cart_random, int key_id) {
 
 	// CART_RANDOM is used to derive the master_key
 	// it is done by first decrypting bbmac 0x305 with a static key based on the key_id into bbmac 0x21.
@@ -42,8 +42,8 @@ void derive_master_key(char* masterKey_out, char* cart_random, int key_id) {
 	}
 }
 
-void decrypt_secondary_key0(char* cart_random, int key_id, char* vita_authenticity_key, char* secondary_key0) {
-	char master_key[0x10];
+void decrypt_secondary_key0(uint8_t* cart_random, int key_id, uint8_t* vita_authenticity_key, uint8_t* secondary_key0) {
+	uint8_t master_key[0x10];
 	derive_master_key(master_key, cart_random, key_id);
 	AesContext master_key_ctx;
 	aesInit(&master_key_ctx, master_key, 0x10);

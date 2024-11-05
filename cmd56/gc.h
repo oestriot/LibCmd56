@@ -7,13 +7,13 @@
 typedef struct gc_cmd56_state {
     // game specific keys, used to derive the rif key,
     // which is used to decrypt the game klicensee.
-    char rif_key_partial[0x20];
-    char klic_key_partial[0x20];
+    uint8_t rif_key_partial[0x20];
+    uint8_t klic_key_partial[0x20];
 
     // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
     // and 0x308 (only on RETAIL_KEY_ID) 
-    char cart_random[0x20];
-    char vita_random[0x20];
+    uint8_t cart_random[0x20];
+    uint8_t vita_random[0x20];
     AesContext master_key;
     AesContext secondary_key0;
 

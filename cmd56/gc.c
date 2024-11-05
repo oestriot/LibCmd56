@@ -46,7 +46,7 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, src_packet_header* pa
 	LOG("VITA_AUTHENTICITY_PROOF: ");
 	LOG_BUFFER(vita_authenticity_proof, sizeof(vita_authenticity_proof));
 
-	char secondary_key0[0x10];
+	uint8_t secondary_key0[0x10];
 	memcpy(secondary_key0, vita_authenticity_proof, sizeof(secondary_key0));
 	LOG("secondary_key0: ");
 	LOG_BUFFER(secondary_key0, sizeof(secondary_key0));
@@ -102,7 +102,7 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, src_packet_header* pa
 	memcpy(response->data + 0x8, state->cart_random, sizeof(state->cart_random));
 
 	// generate master key
-	char master_key[0x10];
+	uint8_t master_key[0x10];
 	derive_master_key(master_key, state->cart_random, state->key_id);
 
 	LOG("Master Key: ");
