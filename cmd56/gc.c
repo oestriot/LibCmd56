@@ -21,7 +21,7 @@ static char KEY0[0x20] = { 0xDD, 0x10, 0x25, 0x44, 0x15, 0x23, 0xFD, 0xC0, 0xF9,
 	response_variable->response_size = __builtin_bswap16((unsigned short)packet_buffer->response_size); \
 	response_variable->error_code = 0; \
 	memset(response->data, 0x00, packet_buffer->response_size); \
-	LOG(__FUNCTION__ "\n");
+	LOG("%s\n", "\n");
 
 void handle_cmd_start(gc_cmd56_state* state, src_packet_header* packet, dst_packet_header* packet_response){
 	PACKET_RESPONSE_START(response, packet, packet_response);
@@ -52,14 +52,25 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, src_packet_header* pa
 	LOG_BUFFER(secondary_key0, sizeof(secondary_key0));
 	aesInit(&state->secondary_key0, secondary_key0, sizeof(secondary_key0));
 
-	// caclulate challenge bytes ...
-	memcpy(challenge, state->cart_random, sizeof(challenge));
-	challenge[0]    |= 0x80;
+	// calculate challenge bytes ...
+	memcpy(challenge, state->vita_random, sizeof(state->vita_random));
+	challenge[0] |= 0x80;
 	challenge[0x10] |= 0x80;
 
 	if (memcmp(challenge, vita_authenticity_proof + 0x10, sizeof(challenge)) == 0) {
-		LOG("Authenticated as real PSVita.");
+		LOG("Authenticated as real PSVita.\n");
 		state->cart_status = ALL_OK;
+	}
+	else {
+		LOG("This is not a real PSVita!\n");
+
+		LOG("CHALLENGE: ");
+		LOG_BUFFER(challenge, sizeof(challenge));
+
+		LOG("vita_authenticity_proof+0x10: ");
+		LOG_BUFFER(vita_authenticity_proof + 0x10, sizeof(challenge));
+
+		state->cart_status = READ_WRITE_LOCK;
 	}
 
 	response->data[0x0] = 0x00;
@@ -89,6 +100,15 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, src_packet_header* pa
 
 	memset(state->cart_random, 0xAA, sizeof(state->cart_random));
 	memcpy(response->data + 0x8, state->cart_random, sizeof(state->cart_random));
+
+	// generate master key
+	char master_key[0x10];
+	derive_master_key(master_key, state->cart_random, state->key_id);
+
+	LOG("Master Key: ");
+	LOG_BUFFER(master_key, sizeof(master_key));
+
+	aesInit(&state->master_key, master_key, sizeof(master_key));
 }
 
 void handle_challenge(gc_cmd56_state* state, src_packet_header* packet, dst_packet_header* packet_response) {
@@ -172,20 +192,12 @@ void handle_rif_buf_part_hash_key(gc_cmd56_state* state, src_packet_header* pack
 void handle_vita_random(gc_cmd56_state* state, src_packet_header* packet, dst_packet_header* packet_response) {
 	PACKET_RESPONSE_START(response, packet, packet_response);
 
-	char vita_random[0x10];
-	memcpy(vita_random, packet->data + 0x2, sizeof(vita_random));
+	memcpy(state->vita_random, packet->data + 0x2, sizeof(state->vita_random));
 	
 	LOG("Vita Random: ");
-	LOG_BUFFER(vita_random, sizeof(vita_random));
+	LOG_BUFFER(state->vita_random, sizeof(state->vita_random));
 
-	char master_key[0x10];
-	derive_master_key(master_key, state->cart_random, state->key_id);
-
-	LOG("Master Key: ");
-	LOG_BUFFER(master_key, sizeof(master_key));
-	aesInit(&state->master_key, master_key, sizeof(master_key));
-
-	memcpy(response->data + 0x10, vita_random, sizeof(vita_random));
+	memcpy(response->data + 0x10, state->vita_random, sizeof(state->vita_random));
 
 	LOG("Plaintext: ");
 	LOG_BUFFER(response->data, 0x20);

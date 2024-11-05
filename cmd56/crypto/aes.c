@@ -45,7 +45,7 @@
     ((uint8_t *)(p))[2] = ((uint32_t)(a) >> 16) & 0xFFU, \
     ((uint8_t *)(p))[3] = ((uint32_t)(a) >> 24) & 0xFFU
 
-static inline uint32_t rol32(uint32_t word, unsigned int shift)
+static inline uint32_t rol32(uint32_t word, int32_t shift)
 {
 	return (word << (shift & 31)) | (word >> ((-shift) & 31));
 }
@@ -302,7 +302,7 @@ uint32_t aesInit(AesContext *context, const void *key,
   * @param[out] output Ciphertext block resulting from encryption
   **/
   
- void aesEncryptBlock(AesContext *context, const void *input,
+ void aesEncryptBlock(AesContext *context, const uint8_t*input,
     uint8_t *output)
  {
     uint32_t i;
@@ -413,7 +413,7 @@ uint32_t aesInit(AesContext *context, const void *key,
   * @param[out] output Plaintext block resulting from decryption
   **/
   
- void aesDecryptBlock(AesContext *context, const void *input, uint8_t *output)
+ void aesDecryptBlock(AesContext *context, const uint8_t*input, uint8_t *output)
  {
     uint32_t i;
     uint32_t s0;

@@ -15,47 +15,47 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cmd56\gc.c">
+    <ClCompile Include="f00d_emu.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cmd56\f00d_emu.c">
+    <ClCompile Include="gc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cmd56\crypto\aes.c">
+    <ClCompile Include="crypto\aes.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cmd56\crypto\aes_cbc.c">
+    <ClCompile Include="crypto\aes_cbc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cmd56\crypto\aes_cmac.c">
+    <ClCompile Include="crypto\aes_cmac.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cmd56\gc.h">
+    <ClInclude Include="compiler_defs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd56\f00d_emu.h">
+    <ClInclude Include="f00d_emu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd56\log.h">
+    <ClInclude Include="gc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd56\crypto\aes.h">
+    <ClInclude Include="log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd56\crypto\aes_cbc.h">
+    <ClInclude Include="crypto\aes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd56\crypto\aes_cmac.h">
+    <ClInclude Include="crypto\aes_cbc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd56\compiler_defs.h">
+    <ClInclude Include="crypto\aes_cmac.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="cmd56\crypto\README.md" />
     <None Include="cmd56\crypto\LICENSE" />
+    <None Include="cmd56\crypto\README.md" />
   </ItemGroup>
 </Project>
