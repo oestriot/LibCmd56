@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include "aes.h"
 
 /*
 input: pointer to input data
@@ -12,7 +13,7 @@ key: pointer to key
 keylen: 16, 24 or 32
 iv: initial vector for CBC mode
 */
-unsigned long AES_CBC_encrypt(uint8_t *input, uint8_t *output, unsigned long length, uint8_t *key, size_t keylen, uint8_t *iv);
-void AES_CBC_decrypt(uint8_t *input, uint8_t *output, unsigned long length, uint8_t *key, size_t keylen, uint8_t *iv);
+unsigned long AES_CBC_encrypt(AesContext* aes_ctx, void *input, void *output, size_t length, void *iv);
+void AES_CBC_decrypt(AesContext* aes_ctx, void *input, void *output, size_t length, void *iv);
 
 #endif

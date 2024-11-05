@@ -11,10 +11,9 @@ enum KEY_IDS {
 	RETAIL_KEY_ID = 0x1
 };
 
-
-void decrypt_with_master_key(char* masterKey, char* output, char* data, size_t dataLen);
-void encrypt_with_master_key(char* masterKey, char* output, char* data, size_t dataLen);
-void derive_master_key(char* masterKey, char* cart_random, int key_id);
+void decrypt_cbc_zero_iv(AesContext* aes_ctx, void* output, void* data, size_t dataLen);
+void encrypt_cbc_zero_iv(AesContext* aes_ctx, void* output, void* data, size_t dataLen);
+void derive_master_key(char* masterKey_out, char* cart_random, int key_id);
 void decrypt_secondary_key0(char* cart_random, int key_id, char* vita_authenticity_key, char* secondary_key0);
 
 #endif

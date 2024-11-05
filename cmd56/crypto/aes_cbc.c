@@ -6,22 +6,24 @@
 
 #define block_copy(dest, src)  memcpy((dest), (src), AES_BLOCKSIZE)
 
-static void block_xor(uint8_t *a, uint8_t *b);
+inline void block_xor(uint8_t *a, uint8_t *b) {
+    for(int i = 0; i < AES_BLOCKSIZE; i++)
+        a[i] ^= b[i];
+};
 
-unsigned long AES_CBC_encrypt(uint8_t *input, uint8_t *output, unsigned long length, uint8_t *key, size_t keylen, uint8_t *iv)
+unsigned long AES_CBC_encrypt(AesContext* aes_ctx, void *input_p, void *output_p, size_t length, void *iv)
 {
-    aes_ctx_t *ctx;
+    uint8_t* input = input_p;
+    uint8_t* output = output_p;
     uint8_t *previous_block_ciphertext = iv;
     unsigned long i;
     unsigned long output_length;
-
-    ctx = AES_ctx_alloc(key, keylen);
 
     for(i = 0; i < length; i+= AES_BLOCKSIZE)
     {
         block_copy(output, input);
         block_xor(output, previous_block_ciphertext);
-        AES_encrypt(ctx, output, output);
+        aesEncryptBlock(aes_ctx, output, output);
         previous_block_ciphertext = output;
 
         output += AES_BLOCKSIZE;
@@ -36,26 +38,24 @@ unsigned long AES_CBC_encrypt(uint8_t *input, uint8_t *output, unsigned long len
         memset(output, 0, AES_BLOCKSIZE);
         memcpy(output, input, i);
         block_xor(output, previous_block_ciphertext);
-        AES_encrypt(ctx, output, output);
+        aesEncryptBlock(aes_ctx, output, output);
         output_length += AES_BLOCKSIZE;
     }
-    free(ctx);
 
     return output_length;
 }
 
-void AES_CBC_decrypt(uint8_t *input, uint8_t *output, unsigned long length, uint8_t *key, size_t keylen, uint8_t *iv)
+void AES_CBC_decrypt(AesContext* aes_ctx, void *input_p, void *output_p, size_t length, void *iv)
 {
-    aes_ctx_t *ctx;
+    uint8_t* input = input_p;
+    uint8_t* output = output_p;
     uint8_t *previous_block_ciphertext = iv;
     unsigned long i;
-
-    ctx = AES_ctx_alloc(key, keylen);
 
     for(i = 0; i < length; i+= AES_BLOCKSIZE)
     {
         block_copy(output, input);
-        AES_decrypt(ctx, output, output);
+        aesDecryptBlock(aes_ctx, output, output);
         block_xor(output, previous_block_ciphertext);
 
         previous_block_ciphertext = input;
@@ -67,16 +67,8 @@ void AES_CBC_decrypt(uint8_t *input, uint8_t *output, unsigned long length, uint
     if(i > 0)
     {
         block_copy(output, input);
-        AES_decrypt(ctx, output, output);
+        aesDecryptBlock(aes_ctx, output, output);
         block_xor(output, previous_block_ciphertext);
         memset(output + i, 0, AES_BLOCKSIZE - i);
     }
-}
-
-//a = a xor b
-static void block_xor(uint8_t *a, uint8_t *b)
-{
-    int i;
-    for(i = 0; i < AES_BLOCKSIZE; i++)
-        a[i] ^= b[i];
 }
