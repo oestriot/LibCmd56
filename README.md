@@ -5,8 +5,6 @@ a library to implement gamecart & vita authentication
 PROGRESS:
 
 - Gamecart side fully implemented
-- Vita side not yet implemented
-
 
 ```
 
