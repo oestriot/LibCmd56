@@ -16,7 +16,7 @@ enum KEY_IDS {
 
 //void decrypt_cbc_zero_iv(AES_ctx* aes_ctx, void* data, size_t dataLen);
 //void encrypt_cbc_zero_iv(AES_ctx* aes_ctx, void* data, size_t dataLen);
-void derive_master_key(uint8_t** masterKey_out, uint8_t* cart_random, int key_id);
+void derive_master_key(uint8_t* masterKey_out, uint8_t* cart_random, int key_id);
 //void decrypt_secondary_key0(uint8_t* cart_random, int key_id, uint8_t* vita_authenticity_key, uint8_t* secondary_key0);
 
 #endif

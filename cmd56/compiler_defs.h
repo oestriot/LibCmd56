@@ -18,7 +18,19 @@ typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef int int32_t;
+typedef unsigned long long uint64_t;
+typedef long long int64_t;
+
+#ifndef _MSC_VER
 typedef __SIZE_TYPE__ size_t;
+#else
+#ifdef _WIN64
+typedef uint64_t size_t;
+#else
+typedef uint32_t size_t;
+#endif
+#endif
+
 
 void* memset(void* dst, int v, size_t len);
 void* memcpy(void* dst, const void* src, size_t len);

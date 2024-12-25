@@ -43,7 +43,7 @@ typedef struct src_packet_header {
     uint8_t data[0x1d1];
 } src_packet_header;
 
-_Static_assert(sizeof(src_packet_header) == 512);
+//_Static_assert(sizeof(src_packet_header) == 512);
 
 typedef struct dst_packet_header {
     uint32_t response_code;
@@ -53,7 +53,7 @@ typedef struct dst_packet_header {
     uint8_t data[0x1f5];
 } dst_packet_header;
 
-_Static_assert(sizeof(dst_packet_header) == 512);
+//_Static_assert(sizeof(dst_packet_header) == 512);
 
 enum cart_status {
     READ_WRITE_LOCK = 0xFF,

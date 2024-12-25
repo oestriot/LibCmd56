@@ -3,6 +3,7 @@
 
 #include "aes.h"
 
-void aes_cmac(AES_ctx* ctx, void *input, size_t length, uint8_t *mac_value);
+void AES_CMAC_buffer(AES_ctx* ctx, void *input, size_t length, uint8_t *mac_value);
+void AES_CMAC_buffer_key(uint8_t* key, void* input, size_t length, uint8_t* output);
 
 #endif

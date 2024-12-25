@@ -65,7 +65,7 @@ static inline void gen_subkey(AES_ctx *aes_ctx, uint8_t *subkey_1, uint8_t *subk
 }
 
 
-void aes_cmac(AES_ctx* aes_ctx, void *input_p, size_t length, uint8_t *mac_value)
+void AES_CMAC_buffer(AES_ctx* aes_ctx, void *input_p, size_t length, uint8_t *mac_value)
 {
     uint8_t* input = input_p;
     uint8_t subkey_1[AES_BLOCKSIZE];
@@ -116,3 +116,8 @@ void aes_cmac(AES_ctx* aes_ctx, void *input_p, size_t length, uint8_t *mac_value
     memcpy(mac_value, previous_block_ciphertext, AES_BLOCKSIZE);
 }
 
+void AES_CMAC_buffer_key(uint8_t* key, void* input, size_t length, uint8_t* output) {
+    struct AES_ctx ctx;
+    AES_init_ctx(&ctx, key);
+    AES_CMAC_buffer(&ctx, input, length, output);
+}

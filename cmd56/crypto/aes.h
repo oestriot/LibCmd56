@@ -68,7 +68,8 @@ void AES_ECB_decrypt(const struct AES_ctx* ctx, uint8_t* buf);
 //        no IV should ever be reused with the same key 
 void AES_CBC_encrypt_buffer(struct AES_ctx* ctx, uint8_t* buf, size_t length, uint8_t* iv);
 void AES_CBC_decrypt_buffer(struct AES_ctx* ctx, uint8_t* buf, size_t length, uint8_t* iv);
-
+void AES_CBC_decrypt_buffer_key(uint8_t* key, uint8_t* buf, size_t length, uint8_t* Iv);
+void AES_CBC_encrypt_buffer_key(uint8_t* key, uint8_t* buf, size_t length, uint8_t* Iv);
 #endif // #if defined(CBC) && (CBC == 1)
 
 
