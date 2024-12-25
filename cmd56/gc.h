@@ -33,7 +33,7 @@ typedef struct gc_cmd56_state {
 
 
 typedef struct src_packet_header {
-    uint8_t key[0x20];
+    uint8_t magic[0x20];
     uint32_t response_code;
     uint32_t data_size;
     uint32_t response_size;

@@ -5,7 +5,7 @@
 #include "crypto/aes.h"
 #include "crypto/aes_cmac.h"
 
-static uint8_t KEY0[0x20] = { 0xDD, 0x10, 0x25, 0x44, 0x15, 0x23, 0xFD, 0xC0, 0xF9, 0xE9, 0x15, 0x26, 0xDC, 0x2A, 0xE0, 0x84, 0xA9, 0x03, 0xA2, 0x97, 0xD4, 0xBB, 0xF8, 0x52, 0xD3, 0xD4, 0x94, 0x2C, 0x89, 0x03, 0xCC, 0x77 };
+static uint8_t CMD56_MAGIC[0x20] = { 0xDD, 0x10, 0x25, 0x44, 0x15, 0x23, 0xFD, 0xC0, 0xF9, 0xE9, 0x15, 0x26, 0xDC, 0x2A, 0xE0, 0x84, 0xA9, 0x03, 0xA2, 0x97, 0xD4, 0xBB, 0xF8, 0x52, 0xD3, 0xD4, 0x94, 0x2C, 0x89, 0x03, 0xCC, 0x77 };
 
 void packet_response_start(gc_cmd56_state* state, src_packet_header* packet_buffer, dst_packet_header* response) {
 	memset(response, 0x00, sizeof(dst_packet_header));
@@ -238,7 +238,7 @@ void gc_cmd56_update_keys(gc_cmd56_state* state, const uint8_t* rif_part, const 
 }
 
 void gc_cmd56_init(gc_cmd56_state* state, const uint8_t* rif_part, const uint8_t* klic_part) {
-	//memset(state, 0x00, sizeof(gc_cmd56_state)); // not needed, cart status is the only value that would need to be set, its set right after
+	memset(state, 0x00, sizeof(gc_cmd56_state)); 
 
 	// lock "cart" for reading/writing
 	state->cart_status = READ_WRITE_LOCK;
@@ -258,7 +258,7 @@ void gc_cmd56_run_in_place(gc_cmd56_state* state, uint8_t* buffer) {
 
 void gc_cmd56_run(gc_cmd56_state* state, const uint8_t* buffer, uint8_t* response) {
 	src_packet_header* packet = (src_packet_header*)buffer;
-	if(memcmp(packet->key, KEY0, sizeof(packet->key)) != 0) {
+	if(memcmp(packet->magic, CMD56_MAGIC, sizeof(packet->magic)) != 0) {
 		return;
 	}
 	handle_packet(state, (src_packet_header*)buffer, (dst_packet_header*)response);
