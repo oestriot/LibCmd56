@@ -6,7 +6,7 @@
 #endif
 
 #ifdef _MSC_VER
-#define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
+#define PACK( __Declaration__ ) __pragma(pack(push, 1) ) __Declaration__ __pragma(pack(pop))
 
 #define __builtin_bswap16 _byteswap_ushort
 #endif
@@ -32,9 +32,26 @@ typedef uint32_t size_t;
 #endif
 
 
+#ifndef _MSC_VER
+#define memcpy(dst, src, len) do { for(size_t i = 0; i < len; i++) { ((uint8_t*)dst)[i] = ((uint8_t*)src)[i]; } } while(0);
+#define memset(dst, v, len) do { for(size_t i = 0; i < len; i++) { ((uint8_t*)dst)[i] = ((uint8_t)v); } } while(0);
+static inline memcmp(void* a, void* b, size_t len) {
+    size_t count = len;
+    uint8_t* s1 = a;
+    uint8_t* s2 = b;
+    while (count-- > 0)
+    {
+        if (*s1++ != *s2++)
+            return s1[-1] < s2[-1] ? -1 : 1;
+    }
+    return 0;
+}
+#else
 void* memset(void* dst, int v, size_t len);
 void* memcpy(void* dst, const void* src, size_t len);
 int memcmp(void* a, void* b, size_t len);
+#endif
+
 #endif
 
 #endif

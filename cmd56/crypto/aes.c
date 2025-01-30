@@ -516,14 +516,20 @@ void AES_CBC_decrypt_buffer(struct AES_ctx* ctx, uint8_t* buf, size_t length, ui
 
 void AES_CBC_decrypt_buffer_key(uint8_t* key, uint8_t* buf, size_t length, uint8_t* Iv) {
     struct AES_ctx ctx;
+    char iv_copy[0x10];
+    memcpy(iv_copy, Iv, sizeof(iv_copy));
+
     AES_init_ctx(&ctx, key);
-    AES_CBC_decrypt_buffer(&ctx, buf, length, Iv);
+    AES_CBC_decrypt_buffer(&ctx, buf, length, iv_copy);
 }
 
 void AES_CBC_encrypt_buffer_key(uint8_t* key, uint8_t* buf, size_t length, uint8_t* Iv) {
     struct AES_ctx ctx;
+    char iv_copy[0x10];
+    memcpy(iv_copy, Iv, sizeof(iv_copy));
+
     AES_init_ctx(&ctx, key);
-    AES_CBC_encrypt_buffer(&ctx, buf, length, Iv);
+    AES_CBC_encrypt_buffer(&ctx, buf, length, iv_copy);
 }
 
 #endif // #if defined(CBC) && (CBC == 1)

@@ -24,10 +24,16 @@
     <ClCompile Include="crypto\aes.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="crypto\aes_cbc.c">
+    <ClCompile Include="crypto\aes_cmac.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="crypto\aes_cmac.c">
+    <ClCompile Include="rng.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="vita.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cmd56.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -47,10 +53,16 @@
     <ClInclude Include="crypto\aes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="crypto\aes_cbc.h">
+    <ClInclude Include="crypto\aes_cmac.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="crypto\aes_cmac.h">
+    <ClInclude Include="rng.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vita.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cmd56.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

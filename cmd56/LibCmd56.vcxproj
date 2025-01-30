@@ -19,18 +19,24 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="cmd56.c" />
     <ClCompile Include="crypto\aes.c" />
     <ClCompile Include="crypto\aes_cmac.c" />
     <ClCompile Include="f00d_emu.c" />
     <ClCompile Include="gc.c" />
+    <ClCompile Include="rng.c" />
+    <ClCompile Include="vita.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="cmd56.h" />
     <ClInclude Include="compiler_defs.h" />
     <ClInclude Include="crypto\aes.h" />
     <ClInclude Include="crypto\aes_cmac.h" />
     <ClInclude Include="f00d_emu.h" />
     <ClInclude Include="gc.h" />
     <ClInclude Include="log.h" />
+    <ClInclude Include="rng.h" />
+    <ClInclude Include="vita.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cmd56\crypto\LICENSE" />
