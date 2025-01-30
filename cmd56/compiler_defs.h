@@ -32,9 +32,9 @@ typedef uint32_t size_t;
 #endif
 
 
-#ifndef _MSC_VER
-#define memcpy(dst, src, len) do { for(size_t i = 0; i < len; i++) { ((uint8_t*)dst)[i] = ((uint8_t*)src)[i]; } } while(0);
-#define memset(dst, v, len) do { for(size_t i = 0; i < len; i++) { ((uint8_t*)dst)[i] = ((uint8_t)v); } } while(0);
+#if !defined(_MSC_VER) && !defined(__GNUC__)
+#define memcpy(dst, src, len) do { for(size_t i = 0; i < len; i++) { ((uint8_t*)dst)[i] = ((uint8_t*)src)[i]; } } while(0)
+#define memset(dst, v, len) do { for(size_t i = 0; i < len; i++) { ((uint8_t*)dst)[i] = ((uint8_t)v); } } while(0)
 static inline memcmp(void* a, void* b, size_t len) {
     size_t count = len;
     uint8_t* s1 = a;
