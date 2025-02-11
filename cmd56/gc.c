@@ -130,10 +130,10 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 		LOG_BUFFER(response->data, 0x20);
 
 		// copy packet18 key
-		memcpy(response->data + 0x10, state->gc_spec_key.packet18_key, sizeof(state->gc_spec_key.packet18_key));
+		memcpy(response->data + 0x10, state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
 
 		LOG("(GC) packet18_key: ");
-		LOG_BUFFER(state->gc_spec_key.packet18_key, sizeof(state->gc_spec_key.packet18_key));
+		LOG_BUFFER(state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
 
 		// encrypt buffer
 		encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x30);
@@ -157,7 +157,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 	LOG_BUFFER(response->data + 0x8, 0x10);
 
 	// copy p20 key
-	memcpy(response->data + 0x18, state->gc_spec_key.packet20_key, sizeof(state->gc_spec_key.packet20_key));
+	memcpy(response->data + 0x18, state->per_cart_keys.packet20_key, sizeof(state->per_cart_keys.packet20_key));
 
 	LOG("(GC) plaintext response: ");
 	LOG_BUFFER(response->data, 0x40);
@@ -237,12 +237,12 @@ void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id) {
 	state->key_id = key_id;
 }
 
-void gc_cmd56_update_keys(gc_cmd56_state* state, const cmd56_keys* gc_spec_key) {
-	memcpy(state->gc_spec_key.packet18_key, gc_spec_key->packet18_key, sizeof(state->gc_spec_key.packet18_key));
-	memcpy(state->gc_spec_key.packet20_key, gc_spec_key->packet20_key, sizeof(state->gc_spec_key.packet20_key));
+void gc_cmd56_update_keys(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
+	memcpy(state->per_cart_keys.packet18_key, per_cart_keys->packet18_key, sizeof(state->per_cart_keys.packet18_key));
+	memcpy(state->per_cart_keys.packet20_key, per_cart_keys->packet20_key, sizeof(state->per_cart_keys.packet20_key));
 }
 
-void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* gc_spec_key) {
+void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
 	memset(state, 0x00, sizeof(gc_cmd56_state)); 
 
 	// lock "cart" for reading/writing
@@ -252,7 +252,7 @@ void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* gc_spec_key) {
 	gc_cmd56_update_keyid(state, RETAIL_KEY_ID);
 
 	// set cart specific keys
-	gc_cmd56_update_keys(state, gc_spec_key);
+	gc_cmd56_update_keys(state, per_cart_keys);
 }
 
 void gc_cmd56_run_in_place(gc_cmd56_state* state, uint8_t* buffer) {

@@ -6,7 +6,8 @@
 #include "f00d_emu.h"
 
 typedef struct gc_cmd56_state {
-    // cart lock status, unlocked after successful VITA_AUTHENTICITY_CHECK
+    // cart lock status, unlocked after
+    // successful VITA_AUTHENTICITY_CHECK
     cmd56_lock_status lock_status;
 
     // KEY_ID to use, every gc i've ever seen uses RETAIL_KEY_ID (0x1).
@@ -23,7 +24,7 @@ typedef struct gc_cmd56_state {
     // per-gc keys, used to derive the rif key,
     // which is used to decrypt the game klicensee,
     // and finally PFS/EBOOT.BIN
-    cmd56_keys gc_spec_key;
+    cmd56_keys per_cart_keys;
 
     // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
     // and 0x308 (only on RETAIL_KEY_ID) 

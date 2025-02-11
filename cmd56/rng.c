@@ -9,9 +9,5 @@ void rand_bytes(void* buf, size_t size) {
 #else
 	AES_CBC_encrypt_buffer_key(state, state, sizeof(state), state);
 	AES_CBC_encrypt_buffer_key(state, buf, size, state);
-	
-
-	LOG("rand_bytes result: ");
-	LOG_BUFFER(buf, size);
 #endif
 }

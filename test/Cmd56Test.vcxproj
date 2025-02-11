@@ -21,14 +21,6 @@
   <ItemGroup>
     <ClCompile Include="main.c" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="from_gc.bin">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="from_vita.bin">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

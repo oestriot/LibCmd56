@@ -9,22 +9,51 @@ typedef void (*send_t)(const char* data, size_t* size);
 typedef void (*recv_t)(const char* data, size_t* size);
 
 typedef enum vita_error_code {
-    SCE_OK = 0,
-    SCE_ERROR = -1
+    GC_AUTH_OK = 0x00,
+
+    GC_AUTH_ERROR_START_FAIL = 0x8001001,
+
+    GC_AUTH_ERROR_GET_CART_RANDOM_PROTOTYPE_KEY = 0x8002001,
+    
+    GC_AUTH_ERROR_VERIFY_VITA_RANDOM_FAIL = 0x8003001,
+    GC_AUTH_ERROR_VERIFY_VITA_RANDOM_INVALID = 0x8003002,
+
+    GC_AUTH_ERROR_VERIFY_VITA_AUTH_PROOF_FAIL = 0x8004001,
+    
+    GC_AUTH_ERROR_VERIFY_CART_RANDOM_FAIL = 0x8005001,
+    GC_AUTH_ERROR_VERIFY_CART_RANDOM_CHALLENGE_INVALID = 0x8005002,
+    GC_AUTH_ERROR_VERIFY_CART_RANDOM_INVALID_CART_RANDOM = 0x8005003,
+
+    GC_AUTH_ERROR_P18_KEY_CHALLANGE_FAIL = 0x8006001,
+    GC_AUTH_ERROR_P18_KEY_INVALID_CMAC = 0x8006002,
+
+    GC_AUTH_ERROR_P20_KEY_CHALLANGE_FAIL = 0x8007001,
+    GC_AUTH_ERROR_P20_KEY_INVALID_CMAC = 0x8007002,
+    
+    GC_AUTH_ERROR_LOCKED = 0x8008001,
+    GC_AUTH_ERROR_UNLOCKED = 0x8008002,
+
+    GC_AUTH_ERROR_REPORTED = 0x800F001
 } vita_error_code;
 
 typedef struct vita_cmd56_state {
-	// send/recv callbacks
-	send_t send;
-	recv_t recv;
+    // send/recv callbacks
+    send_t send;
+    recv_t recv;
 
     // cmd56 request and responses
     cmd56_request cmd56_request;
     cmd56_response cmd56_response;
 
-    // cart lock status, unlocked after successful VITA_AUTHENTICITY_CHECK
+    // cart lock status, unlocked after
+    // successful VITA_AUTHENTICITY_CHECK
     cmd56_lock_status lock_status;
-	
+
+    // set to 0x1 to allow using keyid > 0x8001
+    // which is the case on prototype firmwares, 
+    // on fw 1.04+ this is not allowed, 
+    bool allow_prototype_keys;
+
     // KEY_ID to use, every gc i've ever seen uses RETAIL_KEY_ID (0x1).
     // however a PROTOTYPE_KEY_ID1 0x8001 is also allowed,
 
@@ -39,7 +68,7 @@ typedef struct vita_cmd56_state {
     // per-gc keys, used to derive the rif key,
     // which is used to decrypt the game klicensee,
     // and finally PFS/EBOOT.BIN
-    cmd56_keys gc_spec_key;
+    cmd56_keys per_cart_keys;
 
     // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
     // and 0x308 (only on RETAIL_KEY_ID) 

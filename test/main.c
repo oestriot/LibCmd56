@@ -41,5 +41,16 @@ int main(int argc, char** argv) {
 	else {
 		LOG("Authentication Success!\n");
 	}
+
+	LOG("vita_state.per_cart_keys.packet18_key\n");
+	LOG_BUFFER(vita_state.per_cart_keys.packet18_key, sizeof(vita_state.per_cart_keys.packet18_key));
+	LOG("gc_state.per_cart_keys.packet18_key\n");
+	LOG_BUFFER(gc_state.per_cart_keys.packet18_key, sizeof(gc_state.per_cart_keys.packet18_key));
+
+	LOG("vita_state.per_cart_keys.packet20_key\n");
+	LOG_BUFFER(vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));
+	LOG("gc_state.per_cart_keys.packet20_key\n");
+	LOG_BUFFER(gc_state.per_cart_keys.packet20_key, sizeof(gc_state.per_cart_keys.packet20_key));
+
 	return res;
 }
