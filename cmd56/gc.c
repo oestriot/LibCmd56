@@ -165,7 +165,7 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 	uint8_t* exp_cmac = request->data + 0x20;
 	uint8_t got_cmac[0x10];
 	
-	derive_cmac_packet20_packet20(&state->secondary_key0, 
+	derive_cmac_packet18_packet20(&state->secondary_key0, 
 								  response->data,
 								  make_int24(request->command, 0x0, request->additional_data_size), 
 								  got_cmac, 
@@ -201,7 +201,7 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 		encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x30);
 
 		// aes-128-cmac the whole thing
-		derive_cmac_packet20_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x30, 0x30);
+		derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x30, 0x30);
 	}
 	else {
 		LOG("(GC) p18 cmac validation failed!!\n");
@@ -241,7 +241,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 	encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x40);
 
 	// aes-128-cmac the whole thing
-	derive_cmac_packet20_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x40, 0x40);
+	derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x40, 0x40);
 }
 
 void handle_verify_shared_random(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
