@@ -15,8 +15,8 @@ typedef enum vita_error_code {
 
     GC_AUTH_ERROR_GET_CART_RANDOM_PROTOTYPE_KEY = 0x8002001,
     
-    GC_AUTH_ERROR_VERIFY_shared_random_FAIL = 0x8003001,
-    GC_AUTH_ERROR_VERIFY_shared_random_INVALID = 0x8003002,
+    GC_AUTH_ERROR_VERIFY_SHARED_RANDOM_FAIL = 0x8003001,
+    GC_AUTH_ERROR_VERIFY_SHARED_RANDOM_INVALID = 0x8003002,
 
     GC_AUTH_ERROR_VERIFY_VITA_AUTH_PROOF_FAIL = 0x8004001,
     
@@ -40,10 +40,6 @@ typedef struct vita_cmd56_state {
     // send/recv callbacks
     send_t send;
     recv_t recv;
-
-    // cmd56 request and responses
-    cmd56_request cmd56_request;
-    cmd56_response cmd56_response;
 
     // cart lock status, unlocked after
     // successful VITA_AUTHENTICITY_CHECK

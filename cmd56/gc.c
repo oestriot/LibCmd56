@@ -133,8 +133,9 @@ void handle_secondary_key0_challenge(gc_cmd56_state* state, cmd56_request* packe
 	rand_bytes(response->data, 0x40);
 
 	// copy challenge data
-	memcpy(response->data + 0x9, packet->data + 0x1, 0xF);
-	
+	memcpy(response->data + 0x8, packet->data + 0x0, 0x10);
+	response->data[0x00] |= 0x80; // or it w 0x80 (why does sony do this?)
+
 	LOG("(GC) Got challenge bytes back to secondary_key0: ");
 	LOG_BUFFER(response->data + 0x9, 0xF);
 
@@ -151,9 +152,8 @@ void handle_secondary_key0_challenge(gc_cmd56_state* state, cmd56_request* packe
 void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
 	cmd56_response_start(packet, response);
 
-	// get challenge value
-	uint8_t* challenge_value = response->data + 0x00;
-	memcpy(challenge_value, packet->data + 0x00, 0x20);
+	// copy challange to response
+	memcpy(response->data + 0x00, packet->data + 0x00, 0x20);
 
 	// calcluate cmac and get expected cmac
 	uint8_t* exp_cmac = packet->data + 0x20;
@@ -165,6 +165,7 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 								  got_cmac, 
 								  0x20);
 
+
 	// check type really is 0x2 or 0x3, and its or'd by 0x80 ...
 	if ((response->data[0x1F] == 0x2 || response->data[0x1F] == 0x3) && 
 		(response->data[0x00] | 0x80) == response->data[0x00]) {
@@ -172,14 +173,17 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 		cmd56_response_error(response, 0x11);
 	}
 	else if (memcmp(got_cmac, exp_cmac, sizeof(got_cmac)) == 0) {
-		LOG("(GC) CMAC validated success\n");
-		decrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x20);
+		LOG("(GC) p18 cmac validated success\n");
+
+		uint8_t* challenge_value = response->data + 0x00;
+		decrypt_cbc_zero_iv(&state->secondary_key0, challenge_value, 0x20);
+		challenge_value[0x00] |= 0x80;
 
 		LOG("(GC) decrypted p18 buffer: ");
 		LOG_BUFFER(response->data, 0x30);
 
 		LOG("(GC) exp_challenge value: ");
-		LOG_BUFFER(response->data, 0x20);
+		LOG_BUFFER(challenge_value, 0x20);
 
 		// copy packet18 key
 		memcpy(response->data + 0x10, state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
@@ -194,7 +198,7 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 		derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x30, 0x30);
 	}
 	else {
-		LOG("(GC) CMAC Validation Failed!!\n");
+		LOG("(GC) p18 cmac validation failed!!\n");
 		LOG("(GC) expected: ");
 		LOG_BUFFER(exp_cmac, sizeof(got_cmac));
 		LOG("(GC) got:");
@@ -211,10 +215,13 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 	rand_bytes(response->data, 0x50);
 	
 	// copy challenge value
-	memcpy(response->data+0x9, packet->data, 0xF);
+	uint8_t* p20_challenge_value = response->data + 0x8;
 
-	LOG("(GC) p20 challenge value: ");
-	LOG_BUFFER(response->data + 0x9, 0xF);
+	memcpy(p20_challenge_value, packet->data, 0x10);
+	p20_challenge_value[0x00] |= 0x80;
+
+	LOG("(GC) p20_challenge_value: ");
+	LOG_BUFFER(p20_challenge_value, 0x10);
 
 	// copy p20 key
 
@@ -231,7 +238,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 	derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x40, 0x40);
 }
 
-void handle_shared_random(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
+void handle_verify_shared_random(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
 	cmd56_response_start(packet, response);
 
 	gcauthmgr_keyid got_key_id = make_short(packet->data[1], packet->data[0]);
@@ -245,12 +252,16 @@ void handle_shared_random(gc_cmd56_state* state, cmd56_request* packet, cmd56_re
 
 		// gamecart decides the lower portion of vita random ...
 		rand_bytes(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
+		state->shared_random.cart_part[0x00] |= 0x80;
+		state->shared_random.vita_part[0x00] |= 0x80;
+
 		LOG("(GC) generated gc portion of the shared random: ");
 		LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
 
 		// this is sent back to the console in reverse order ...
 		memcpy(response->data + 0x00, state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
 		memcpy(response->data + 0x10, state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
+		
 
 		LOG("(GC) handle_shared_random plaintext: ");
 		LOG_BUFFER(response->data, sizeof(shared_value));
@@ -283,8 +294,8 @@ void handle_packet(gc_cmd56_state* state, cmd56_request* packet, cmd56_response*
 		case CMD_GENERATE_RANDOM_KEYSEED: // packet5, packet6
 			handle_generate_random_keyseed(state, packet, packet_response);
 			break;
-		case CMD_VERIFY_shared_random: // packet7, packet8
-			handle_shared_random(state, packet, packet_response);
+		case CMD_VERIFY_SHARED_RANDOM: // packet7, packet8
+			handle_verify_shared_random(state, packet, packet_response);
 			break;
 		case CMD_VITA_AUTHENTICITY_CHECK: // packet9, packet10
 			handle_vita_authenticity_check(state, packet, packet_response);
