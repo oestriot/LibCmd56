@@ -29,7 +29,8 @@ typedef struct gc_cmd56_state {
     // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
     // and 0x308 (only on RETAIL_KEY_ID) 
     uint8_t cart_random[0x20];
-    uint8_t vita_random[0x20];
+    shared_value shared_random;
+
     AES_ctx master_key;
     AES_ctx secondary_key0;
 } gc_cmd56_state;

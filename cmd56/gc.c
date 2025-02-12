@@ -45,7 +45,9 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* packet
 	AES_init_ctx(&state->secondary_key0, got_secondary_key0);
 
 	// calculate challenge bytes ...
-	uint8_t* exp_challenge = state->vita_random;
+	uint8_t exp_challenge[0x20];
+	memcpy(exp_challenge, &state->shared_random, sizeof(shared_value));
+
 	exp_challenge[0x00] |= 0x80;
 	exp_challenge[0x10] |= 0x80;
 
@@ -124,19 +126,22 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* packet
 	AES_init_ctx(&state->master_key, master_key);
 }
 
-void handle_challenge(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
+void handle_secondary_key0_challenge(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
 	cmd56_response_start(packet, response);
 
+	// the other bytes in here are never used, but it is seemingly random on a offical cart.
+	rand_bytes(response->data, 0x40);
+
 	// copy challenge data
-	memcpy(response->data + 0x8, packet->data, 0x10);
+	memcpy(response->data + 0x9, packet->data + 0x1, 0xF);
 	
-	LOG("(GC) Challenge: ");
-	LOG_BUFFER(response->data + 0x8, 0x10);
+	LOG("(GC) Got challenge bytes back to secondary_key0: ");
+	LOG_BUFFER(response->data + 0x9, 0xF);
 
 	// copy cart random
 	memcpy(response->data + 0x18, state->cart_random, sizeof(state->cart_random));
 
-	LOG("(GC) Plaintext: ");
+	LOG("(GC) Plaintext of secondary_key0 challenge response packet: ");
 	LOG_BUFFER(response->data, 0x40);
 
 	encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x40);
@@ -146,10 +151,11 @@ void handle_challenge(gc_cmd56_state* state, cmd56_request* packet, cmd56_respon
 void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
 	cmd56_response_start(packet, response);
 
-	// decrypt challenge value
-	memcpy(response->data, packet->data, 0x20);
-	decrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x20);
+	// get challenge value
+	uint8_t* challenge_value = response->data + 0x00;
+	memcpy(challenge_value, packet->data + 0x00, 0x20);
 
+	// calcluate cmac and get expected cmac
 	uint8_t* exp_cmac = packet->data + 0x20;
 	uint8_t got_cmac[0x10];
 	
@@ -158,11 +164,21 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 								  make_int24(packet->command, 0x0, packet->additional_data_size), 
 								  got_cmac, 
 								  0x20);
-	
-	if (memcmp(got_cmac, exp_cmac, sizeof(got_cmac)) == 0) {
-		LOG("(GC) CMAC validated success\n");
 
-		LOG("(GC) exp_challenge random: ");
+	// check type really is 0x2 or 0x3, and its or'd by 0x80 ...
+	if ((response->data[0x1F] == 0x2 || response->data[0x1F] == 0x3) && 
+		(response->data[0x00] | 0x80) == response->data[0x00]) {
+		LOG("(GC) invalid p18 request, 0x1F is not 0x2 or 0x3, OR 0x00 is not or'd with 0x80.\n");
+		cmd56_response_error(response, 0x11);
+	}
+	else if (memcmp(got_cmac, exp_cmac, sizeof(got_cmac)) == 0) {
+		LOG("(GC) CMAC validated success\n");
+		decrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x20);
+
+		LOG("(GC) decrypted p18 buffer: ");
+		LOG_BUFFER(response->data, 0x30);
+
+		LOG("(GC) exp_challenge value: ");
 		LOG_BUFFER(response->data, 0x20);
 
 		// copy packet18 key
@@ -178,12 +194,12 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 		derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x30, 0x30);
 	}
 	else {
-		LOG("(GC) Cmac Validation Failed!!\n");
+		LOG("(GC) CMAC Validation Failed!!\n");
 		LOG("(GC) expected: ");
 		LOG_BUFFER(exp_cmac, sizeof(got_cmac));
 		LOG("(GC) got:");
 		LOG_BUFFER(got_cmac, sizeof(got_cmac));
-		cmd56_response_error(response, 0x11);
+		cmd56_response_error(response, 0xF4);
 	}
 
 }
@@ -191,16 +207,21 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
 	cmd56_response_start(packet, response);
 	
-	// copy random value
-	memcpy(response->data+0x8, packet->data, 0x10);
+	// just to make it more accurate to what a real gamecart does.
+	rand_bytes(response->data, 0x50);
+	
+	// copy challenge value
+	memcpy(response->data+0x9, packet->data, 0xF);
 
-	LOG("(GC) random value: ");
-	LOG_BUFFER(response->data + 0x8, 0x10);
+	LOG("(GC) p20 challenge value: ");
+	LOG_BUFFER(response->data + 0x9, 0xF);
 
 	// copy p20 key
+
+	LOG("(GC) copying p20 key.\n");
 	memcpy(response->data + 0x18, state->per_cart_keys.packet20_key, sizeof(state->per_cart_keys.packet20_key));
 
-	LOG("(GC) plaintext response: ");
+	LOG("(GC) p20 plaintext response: ");
 	LOG_BUFFER(response->data, 0x40);
 
 	// encrypt buffer
@@ -210,34 +231,33 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 	derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x40, 0x40);
 }
 
-void handle_vita_random(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
+void handle_shared_random(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
 	cmd56_response_start(packet, response);
 
 	gcauthmgr_keyid got_key_id = make_short(packet->data[1], packet->data[0]);
-	const uint8_t bugged_vita_random_size = 0x10;
 
 	if (got_key_id == state->key_id) {
 		LOG("(GC) got_key_id == state->key_id\n");
 
-		memcpy(state->vita_random, packet->data + 0x2, bugged_vita_random_size);
-		LOG("(GC) read vita_random: ");
-		LOG_BUFFER(state->vita_random, sizeof(state->vita_random));
+		memcpy(state->shared_random.vita_part, packet->data + 0x2, sizeof(state->shared_random.vita_part));
+		LOG("(GC) read vita portion of the shared random: ");
+		LOG_BUFFER(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 
-		// offical gamecarts have random data here, 
-		// vita doesn't do anything with these extra bytes
-		// adding this for completeness sake.
+		// gamecart decides the lower portion of vita random ...
+		rand_bytes(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
+		LOG("(GC) generated gc portion of the shared random: ");
+		LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
 
-		rand_bytes(response->data + 0x00, 0x10);
-		LOG("(GC) unused bytes:");
-		LOG_BUFFER(response->data + 0x00, 0x10);
+		// this is sent back to the console in reverse order ...
+		memcpy(response->data + 0x00, state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
+		memcpy(response->data + 0x10, state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 
-		memcpy(response->data + 0x10, state->vita_random, bugged_vita_random_size);
-		LOG("(GC) handle_vita_random plaintext: ");
-		LOG_BUFFER(response->data, 0x20);
+		LOG("(GC) handle_shared_random plaintext: ");
+		LOG_BUFFER(response->data, sizeof(shared_value));
 
 		encrypt_cbc_zero_iv(&state->master_key, response->data, 0x20);
 
-		LOG("(GC) handle_vita_random ciphertext: ");
+		LOG("(GC) handle_shared_random ciphertext: ");
 		LOG_BUFFER(response->data, 0x20);
 	}
 	else {
@@ -263,8 +283,8 @@ void handle_packet(gc_cmd56_state* state, cmd56_request* packet, cmd56_response*
 		case CMD_GENERATE_RANDOM_KEYSEED: // packet5, packet6
 			handle_generate_random_keyseed(state, packet, packet_response);
 			break;
-		case CMD_VERIFY_VITA_RANDOM: // packet7, packet8
-			handle_vita_random(state, packet, packet_response);
+		case CMD_VERIFY_shared_random: // packet7, packet8
+			handle_shared_random(state, packet, packet_response);
 			break;
 		case CMD_VITA_AUTHENTICITY_CHECK: // packet9, packet10
 			handle_vita_authenticity_check(state, packet, packet_response);
@@ -273,7 +293,7 @@ void handle_packet(gc_cmd56_state* state, cmd56_request* packet, cmd56_response*
 		// packet11, packet12 -> GET_STATUS again
 		
 		case CMD_SECONDARY_KEY0_CHALLENGE: // packet13, packet14
-			handle_challenge(state, packet, packet_response);
+			handle_secondary_key0_challenge(state, packet, packet_response);
 			break;
 
 		case CMD_P18_KEY_AND_CMAC_SIGNATURE: // packet15, packet16

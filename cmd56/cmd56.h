@@ -20,7 +20,7 @@ enum cmd56_commands {
     CMD_START = 0xC4,
     CMD_GET_STATUS = 0xC2,
     CMD_GENERATE_RANDOM_KEYSEED = 0xA1,
-    CMD_VERIFY_VITA_RANDOM = 0xA2,
+    CMD_VERIFY_shared_random = 0xA2,
     CMD_VITA_AUTHENTICITY_CHECK = 0xA3,
     CMD_SECONDARY_KEY0_CHALLENGE = 0xA4,
     CMD_P18_KEY_AND_CMAC_SIGNATURE = 0xB1,
@@ -50,6 +50,11 @@ typedef struct cmd56_response {
     uint8_t error_code;
     uint8_t data[0x1f5];
 } cmd56_response;
+
+typedef struct shared_value {
+    uint8_t vita_part[0x10];
+    uint8_t cart_part[0x10];
+} shared_value;
 
 void cmd56_response_start(cmd56_request* packet_buffer, cmd56_response* response);
 void cmd56_response_error(cmd56_response* response, uint8_t error);

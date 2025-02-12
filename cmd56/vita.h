@@ -15,8 +15,8 @@ typedef enum vita_error_code {
 
     GC_AUTH_ERROR_GET_CART_RANDOM_PROTOTYPE_KEY = 0x8002001,
     
-    GC_AUTH_ERROR_VERIFY_VITA_RANDOM_FAIL = 0x8003001,
-    GC_AUTH_ERROR_VERIFY_VITA_RANDOM_INVALID = 0x8003002,
+    GC_AUTH_ERROR_VERIFY_shared_random_FAIL = 0x8003001,
+    GC_AUTH_ERROR_VERIFY_shared_random_INVALID = 0x8003002,
 
     GC_AUTH_ERROR_VERIFY_VITA_AUTH_PROOF_FAIL = 0x8004001,
     
@@ -73,7 +73,8 @@ typedef struct vita_cmd56_state {
     // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
     // and 0x308 (only on RETAIL_KEY_ID) 
     uint8_t cart_random[0x20];
-    uint8_t vita_random[0x20];
+    shared_value shared_random;
+
     AES_ctx master_key;
     AES_ctx secondary_key0;
 } vita_cmd56_state;

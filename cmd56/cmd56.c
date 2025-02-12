@@ -27,6 +27,7 @@ void cmd56_response_start(cmd56_request* request_buffer, cmd56_response* respons
 
 void cmd56_response_error(cmd56_response* response, uint8_t error) {
 	response->error_code = error;
+	response->response_code = error;
 
 	uint16_t size = __builtin_bswap16((uint16_t)response->response_size);
 	memset(response->data, 0xFF, size);

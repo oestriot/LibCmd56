@@ -62,13 +62,14 @@ void derive_master_key(uint8_t* masterKey_out, uint8_t* cart_random, int key_id)
 }
 
 void derive_cmac_packet18_packet20(AES_ctx* ctx, uint8_t* data, uint32_t header, uint8_t* output, size_t size) {
-	uint8_t cmac_input[0x50] = { 0 };
+	uint8_t cmac_input[0x50];
+	memset(cmac_input, 0x00, sizeof(cmac_input));
 
 	// aes-128-cmac the whole thing
-	memcpy(cmac_input, &header, sizeof(header));
-	memcpy(cmac_input + 0x10, data, size); // copy encrypted secondary_key0 to cmac_input+0x10
+	memcpy(cmac_input, &header, 0x3);
+	memcpy(cmac_input + 0x10, data, size); // copy data to cmac_input + 0x10
 
-	AES_CMAC_buffer(ctx, cmac_input, size + 0x10, output);
+	AES_CMAC_buffer(ctx, cmac_input, size + 0x10, output); // caclulate the CMAC ...
 
 	LOG("(CMD56) CMAC: ");
 	LOG_BUFFER(output, 0x10);

@@ -32,7 +32,7 @@ void emu_recv(char* buf, size_t size) {
 	LOG_BUFFER(GC_PACKET, sizeof(GC_PACKET));
 }
 
-#define REPLAY_TEST 1
+//#define REPLAY_TEST 1
 #ifdef REPLAY_TEST
 
 static FILE* vRecv = NULL;
