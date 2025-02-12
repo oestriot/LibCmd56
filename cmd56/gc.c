@@ -285,8 +285,10 @@ void handle_verify_shared_random(gc_cmd56_state* state, cmd56_request* request, 
 
 }
 
-void handle_unknown_request(gc_cmd56_state* state, cmd56_request* request, cmd56_response* request_response) {
+void handle_unknown_request(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	LOG("(GC) Unknown command: %x\n", request->command);
+	cmd56_response_start(request, response);
+	cmd56_response_error(response, 0x11);
 }
 
 void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_response* request_response) {
