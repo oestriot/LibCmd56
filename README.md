@@ -31,6 +31,7 @@ int main() {
 }
 
 // vita side (pesudocode):
+
 #include "cmd56/vita.h"
 
 int main() {
