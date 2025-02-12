@@ -358,6 +358,11 @@ void vita_cmd56_init(vita_cmd56_state* state, send_t send_func, recv_t recv_func
 	state->allow_prototype_keys = false; // emulate 3.60 firmware
 }
 
+void vita_cmd56_init_ex(vita_cmd56_state* state, send_t send_func, recv_t recv_func, bool allow_prototype_keys) {
+	vita_cmd56_init(state, send_func, recv_func);
+	state->allow_prototype_keys = true;
+}
+
 int vita_cmd56_run(vita_cmd56_state* state) {
 
 	cmd56_request request;

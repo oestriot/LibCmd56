@@ -83,7 +83,7 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* packet
 
 	rand_bytes(state->cart_random, sizeof(state->cart_random));
 
-	// unknown paramaters, copied values from "Superdimension Neptune vs Sega Hard Girls".
+	// unknown paramaters, copied values from "Smart As.".
 	// half of it seems to extend into the CART_RANDOM even, its very strange.
 	// the vita does nothing with these, so i can't easily know what there for
 	// this is just included incase they decide to do something with them in a later firmware..
@@ -94,21 +94,27 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* packet
 	response->data[0x6] = 0x00;
 	response->data[0x7] = 0x03;
  
+	
 	state->cart_random[0x0] = 0x00;
 	state->cart_random[0x1] = 0x01;
 
+	
 	state->cart_random[0x2] = 0x00;
 	state->cart_random[0x3] = 0x01;
+	
 	
 	state->cart_random[0x4] = 0x00;
 	state->cart_random[0x5] = 0x00;
 	state->cart_random[0x6] = 0x00;
 	state->cart_random[0x7] = 0x00;
 
+
 	state->cart_random[0x8] = 0x00;
 	state->cart_random[0x9] = 0x00;
 	state->cart_random[0xA] = 0x00;
-	state->cart_random[0xB] = 0x03; // i have seen this one be 0x05 in another game.
+	state->cart_random[0xB] = 0x04; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
+									// 0x4 in Smart As,
+									// (possibly: 0x3 on 2GB gc, and 0x4 on 4GB gc? needs more testing.)
 	state->cart_random[0xC] = 0x00;
 
 	memcpy(response->data + 0x8, state->cart_random, sizeof(state->cart_random));
