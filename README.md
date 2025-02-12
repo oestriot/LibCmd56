@@ -7,6 +7,8 @@ PROGRESS:
 - Gamecart side fully implemented
 - Vita side fully implemented
 
+both gamecart authenticating with a vita, and vita authenticating with a gamecart, have been tested on real hardware.
+
 ```
 
 // gamecart side (pesudocode):
@@ -28,7 +30,7 @@ int main() {
 	}
 }
 
-// gamecart side (pesudocode):
+// vita side (pesudocode):
 #include "cmd56/vita.h"
 
 int main() {
