@@ -192,10 +192,10 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 		LOG_BUFFER(challenge_value, 0x20);
 
 		// copy request18 key
-		memcpy(response->data + 0x10, state->per_cart_keys.request18_key, sizeof(state->per_cart_keys.request18_key));
+		memcpy(response->data + 0x10, state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
 
-		LOG("(GC) request18_key: ");
-		LOG_BUFFER(state->per_cart_keys.request18_key, sizeof(state->per_cart_keys.request18_key));
+		LOG("(GC) packet18_key: ");
+		LOG_BUFFER(state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
 
 		// encrypt buffer
 		encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x30);
@@ -232,7 +232,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 	// copy p20 key
 
 	LOG("(GC) copying p20 key.\n");
-	memcpy(response->data + 0x18, state->per_cart_keys.request20_key, sizeof(state->per_cart_keys.request20_key));
+	memcpy(response->data + 0x18, state->per_cart_keys.packet20_key, sizeof(state->per_cart_keys.packet20_key));
 
 	LOG("(GC) p20 plaintext response: ");
 	LOG_BUFFER(response->data, 0x40);
@@ -291,35 +291,35 @@ void handle_unknown_request(gc_cmd56_state* state, cmd56_request* request, cmd56
 
 void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_response* request_response) {
 	switch(request->command) {
-		case CMD_START: //request1, request2
+		case CMD_START: //packet1, packet2
 			handle_cmd_start(state, request, request_response);
 			break;
-		case CMD_GET_STATUS: // request3, request4
+		case CMD_GET_STATUS: // packet3, packet4
 			handle_cmd_status(state, request, request_response);
 			break;
-		case CMD_GENERATE_RANDOM_KEYSEED: // request5, request6
+		case CMD_GENERATE_RANDOM_KEYSEED: // packet5, packet6
 			handle_generate_random_keyseed(state, request, request_response);
 			break;
-		case CMD_VERIFY_SHARED_RANDOM: // request7, request8
+		case CMD_VERIFY_SHARED_RANDOM: // packet7, packet8
 			handle_verify_shared_random(state, request, request_response);
 			break;
-		case CMD_VITA_AUTHENTICITY_CHECK: // request9, request10
+		case CMD_VITA_AUTHENTICITY_CHECK: // packet9, packet10
 			handle_vita_authenticity_check(state, request, request_response);
 			break;
 			
-		// request11, request12 -> GET_STATUS again
+		// packet11, packet12 -> CMD_GET_STATUS again
 		
-		case CMD_SECONDARY_KEY0_CHALLENGE: // request13, request14
+		case CMD_SECONDARY_KEY0_CHALLENGE: // packet13, packet14
 			handle_secondary_key0_challenge(state, request, request_response);
 			break;
 
-		case CMD_P18_KEY_AND_CMAC_SIGNATURE: // request15, request16
+		case CMD_P18_KEY_AND_CMAC_SIGNATURE: // packet15, packet16
 			handle_p18key_and_cmac_signature(state, request, request_response);
 			break;
 
-		// request17, request18 -> P18_KEY_AND_CMAC_SIGNATURE again
+		// packet17, packet18 -> P18_KEY_AND_CMAC_SIGNATURE again
 
-		case CMD_P20_KEY_AND_CMAC_SIGNATURE: // request19, request20
+		case CMD_P20_KEY_AND_CMAC_SIGNATURE: // packet19, packet20
 			handle_p20key_and_cmac_signature(state, request, request_response);
 			break;
 		default:
@@ -335,8 +335,8 @@ void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id) {
 }
 
 void gc_cmd56_update_keys(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
-	memcpy(state->per_cart_keys.request18_key, per_cart_keys->request18_key, sizeof(state->per_cart_keys.request18_key));
-	memcpy(state->per_cart_keys.request20_key, per_cart_keys->request20_key, sizeof(state->per_cart_keys.request20_key));
+	memcpy(state->per_cart_keys.packet18_key, per_cart_keys->packet18_key, sizeof(state->per_cart_keys.packet18_key));
+	memcpy(state->per_cart_keys.packet20_key, per_cart_keys->packet20_key, sizeof(state->per_cart_keys.packet20_key));
 }
 
 void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
