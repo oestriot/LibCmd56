@@ -8,8 +8,8 @@
 #include "crypto/aes_cmac.h"
 
 
-void handle_cmd_start(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response){
-	cmd56_response_start(packet, response);
+void handle_cmd_start(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response){
+	cmd56_response_start(request, response);
 	state->lock_status = GC_LOCKED;
 
 	response->data[0xD] = 0x1;
@@ -17,18 +17,18 @@ void handle_cmd_start(gc_cmd56_state* state, cmd56_request* packet, cmd56_respon
 	response->data[0xF] = 0x4;
 }
 
-void handle_cmd_status(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
-	cmd56_response_start(packet, response);
+void handle_cmd_status(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
 	response->data[0x0] = (state->lock_status & 0x00FF);
 	response->data[0x1] = (state->lock_status & 0xFF00) >> 8; 
 }
 
-void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
-	cmd56_response_start(packet, response);
-	// decrypt 0x30 bytes of the packet ...
-	decrypt_cbc_zero_iv(&state->master_key, packet->data, 0x30);
+void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
+	// decrypt 0x30 bytes of the request ...
+	decrypt_cbc_zero_iv(&state->master_key, request->data, 0x30);
 
-	uint8_t* vita_authenticity_proof = packet->data;
+	uint8_t* vita_authenticity_proof = request->data;
 
 	// log everything
 	LOG("(GC) decrypted vita_authenticity_proof buffer: ");
@@ -70,8 +70,8 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* packet
 	}
 }
 
-void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
-	cmd56_response_start(packet, response);
+void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
 
 	response->data[0x0] = 0xE0;
 	response->data[0x1] = 0x00;
@@ -132,14 +132,14 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* packet
 	AES_init_ctx(&state->master_key, master_key);
 }
 
-void handle_secondary_key0_challenge(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
-	cmd56_response_start(packet, response);
+void handle_secondary_key0_challenge(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
 
 	// the other bytes in here are never used, but it is seemingly random on a offical cart.
 	rand_bytes(response->data, 0x40);
 
 	// copy challenge data
-	memcpy(response->data + 0x8, packet->data + 0x0, 0x10);
+	memcpy(response->data + 0x8, request->data + 0x0, 0x10);
 	response->data[0x00] |= 0x80; // or it w 0x80 (why does sony do this?)
 
 	LOG("(GC) Got challenge bytes back to secondary_key0: ");
@@ -148,26 +148,26 @@ void handle_secondary_key0_challenge(gc_cmd56_state* state, cmd56_request* packe
 	// copy cart random
 	memcpy(response->data + 0x18, state->cart_random, sizeof(state->cart_random));
 
-	LOG("(GC) Plaintext of secondary_key0 challenge response packet: ");
+	LOG("(GC) Plaintext of secondary_key0 challenge response request: ");
 	LOG_BUFFER(response->data, 0x40);
 
 	encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x40);
 }
 
 
-void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
-	cmd56_response_start(packet, response);
+void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
 
 	// copy challange to response
-	memcpy(response->data + 0x00, packet->data + 0x00, 0x20);
+	memcpy(response->data + 0x00, request->data + 0x00, 0x20);
 
 	// calcluate cmac and get expected cmac
-	uint8_t* exp_cmac = packet->data + 0x20;
+	uint8_t* exp_cmac = request->data + 0x20;
 	uint8_t got_cmac[0x10];
 	
-	derive_cmac_packet18_packet20(&state->secondary_key0, 
+	derive_cmac_request18_request20(&state->secondary_key0, 
 								  response->data,
-								  make_int24(packet->command, 0x0, packet->additional_data_size), 
+								  make_int24(request->command, 0x0, request->additional_data_size), 
 								  got_cmac, 
 								  0x20);
 
@@ -191,17 +191,17 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 		LOG("(GC) exp_challenge value: ");
 		LOG_BUFFER(challenge_value, 0x20);
 
-		// copy packet18 key
-		memcpy(response->data + 0x10, state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
+		// copy request18 key
+		memcpy(response->data + 0x10, state->per_cart_keys.request18_key, sizeof(state->per_cart_keys.request18_key));
 
-		LOG("(GC) packet18_key: ");
-		LOG_BUFFER(state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
+		LOG("(GC) request18_key: ");
+		LOG_BUFFER(state->per_cart_keys.request18_key, sizeof(state->per_cart_keys.request18_key));
 
 		// encrypt buffer
 		encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x30);
 
 		// aes-128-cmac the whole thing
-		derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x30, 0x30);
+		derive_cmac_request18_request20(&state->secondary_key0, response->data, response->response_size, response->data + 0x30, 0x30);
 	}
 	else {
 		LOG("(GC) p18 cmac validation failed!!\n");
@@ -214,8 +214,8 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 
 }
 
-void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
-	cmd56_response_start(packet, response);
+void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
 	
 	// just to make it more accurate to what a real gamecart does.
 	rand_bytes(response->data, 0x50);
@@ -223,7 +223,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 	// copy challenge value
 	uint8_t* p20_challenge_value = response->data + 0x8;
 
-	memcpy(p20_challenge_value, packet->data, 0x10);
+	memcpy(p20_challenge_value, request->data, 0x10);
 	p20_challenge_value[0x00] |= 0x80;
 
 	LOG("(GC) p20_challenge_value: ");
@@ -232,7 +232,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 	// copy p20 key
 
 	LOG("(GC) copying p20 key.\n");
-	memcpy(response->data + 0x18, state->per_cart_keys.packet20_key, sizeof(state->per_cart_keys.packet20_key));
+	memcpy(response->data + 0x18, state->per_cart_keys.request20_key, sizeof(state->per_cart_keys.request20_key));
 
 	LOG("(GC) p20 plaintext response: ");
 	LOG_BUFFER(response->data, 0x40);
@@ -241,18 +241,18 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 	encrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x40);
 
 	// aes-128-cmac the whole thing
-	derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x40, 0x40);
+	derive_cmac_request18_request20(&state->secondary_key0, response->data, response->response_size, response->data + 0x40, 0x40);
 }
 
-void handle_verify_shared_random(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
-	cmd56_response_start(packet, response);
+void handle_verify_shared_random(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
 
-	gcauthmgr_keyid got_key_id = make_short(packet->data[1], packet->data[0]);
+	gcauthmgr_keyid got_key_id = make_short(request->data[1], request->data[0]);
 
 	if (got_key_id == state->key_id) {
 		LOG("(GC) got_key_id == state->key_id\n");
 
-		memcpy(state->shared_random.vita_part, packet->data + 0x2, sizeof(state->shared_random.vita_part));
+		memcpy(state->shared_random.vita_part, request->data + 0x2, sizeof(state->shared_random.vita_part));
 		LOG("(GC) read vita portion of the shared random: ");
 		LOG_BUFFER(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 
@@ -285,45 +285,45 @@ void handle_verify_shared_random(gc_cmd56_state* state, cmd56_request* packet, c
 
 }
 
-void handle_unknown_packet(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* packet_response) {
-	LOG("(GC) Unknown command: %x\n", packet->command);
+void handle_unknown_request(gc_cmd56_state* state, cmd56_request* request, cmd56_response* request_response) {
+	LOG("(GC) Unknown command: %x\n", request->command);
 }
 
-void handle_packet(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* packet_response) {
-	switch(packet->command) {
-		case CMD_START: //packet1, packet2
-			handle_cmd_start(state, packet, packet_response);
+void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_response* request_response) {
+	switch(request->command) {
+		case CMD_START: //request1, request2
+			handle_cmd_start(state, request, request_response);
 			break;
-		case CMD_GET_STATUS: // packet3, packet4
-			handle_cmd_status(state, packet, packet_response);
+		case CMD_GET_STATUS: // request3, request4
+			handle_cmd_status(state, request, request_response);
 			break;
-		case CMD_GENERATE_RANDOM_KEYSEED: // packet5, packet6
-			handle_generate_random_keyseed(state, packet, packet_response);
+		case CMD_GENERATE_RANDOM_KEYSEED: // request5, request6
+			handle_generate_random_keyseed(state, request, request_response);
 			break;
-		case CMD_VERIFY_SHARED_RANDOM: // packet7, packet8
-			handle_verify_shared_random(state, packet, packet_response);
+		case CMD_VERIFY_SHARED_RANDOM: // request7, request8
+			handle_verify_shared_random(state, request, request_response);
 			break;
-		case CMD_VITA_AUTHENTICITY_CHECK: // packet9, packet10
-			handle_vita_authenticity_check(state, packet, packet_response);
+		case CMD_VITA_AUTHENTICITY_CHECK: // request9, request10
+			handle_vita_authenticity_check(state, request, request_response);
 			break;
 			
-		// packet11, packet12 -> GET_STATUS again
+		// request11, request12 -> GET_STATUS again
 		
-		case CMD_SECONDARY_KEY0_CHALLENGE: // packet13, packet14
-			handle_secondary_key0_challenge(state, packet, packet_response);
+		case CMD_SECONDARY_KEY0_CHALLENGE: // request13, request14
+			handle_secondary_key0_challenge(state, request, request_response);
 			break;
 
-		case CMD_P18_KEY_AND_CMAC_SIGNATURE: // packet15, packet16
-			handle_p18key_and_cmac_signature(state, packet, packet_response);
+		case CMD_P18_KEY_AND_CMAC_SIGNATURE: // request15, request16
+			handle_p18key_and_cmac_signature(state, request, request_response);
 			break;
 
-		// packet17, packet18 -> P18_KEY_AND_CMAC_SIGNATURE again
+		// request17, request18 -> P18_KEY_AND_CMAC_SIGNATURE again
 
-		case CMD_P20_KEY_AND_CMAC_SIGNATURE: // packet19, packet20
-			handle_p20key_and_cmac_signature(state, packet, packet_response);
+		case CMD_P20_KEY_AND_CMAC_SIGNATURE: // request19, request20
+			handle_p20key_and_cmac_signature(state, request, request_response);
 			break;
 		default:
-			handle_unknown_packet(state, packet, packet_response);
+			handle_unknown_request(state, request, request_response);
 			break;
 	}
 }
@@ -335,8 +335,8 @@ void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id) {
 }
 
 void gc_cmd56_update_keys(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
-	memcpy(state->per_cart_keys.packet18_key, per_cart_keys->packet18_key, sizeof(state->per_cart_keys.packet18_key));
-	memcpy(state->per_cart_keys.packet20_key, per_cart_keys->packet20_key, sizeof(state->per_cart_keys.packet20_key));
+	memcpy(state->per_cart_keys.request18_key, per_cart_keys->request18_key, sizeof(state->per_cart_keys.request18_key));
+	memcpy(state->per_cart_keys.request20_key, per_cart_keys->request20_key, sizeof(state->per_cart_keys.request20_key));
 }
 
 void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
@@ -353,15 +353,15 @@ void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
 }
 
 void gc_cmd56_run_in_place(gc_cmd56_state* state, uint8_t* buffer) {
-	uint8_t cmd56_packet_response[0x200];
-	gc_cmd56_run(state, buffer, cmd56_packet_response);
-	memcpy(buffer, cmd56_packet_response, sizeof(cmd56_packet_response));
+	uint8_t cmd56_request_response[0x200];
+	gc_cmd56_run(state, buffer, cmd56_request_response);
+	memcpy(buffer, cmd56_request_response, sizeof(cmd56_request_response));
 }
 
 void gc_cmd56_run(gc_cmd56_state* state, const uint8_t* buffer, uint8_t* response) {
-	cmd56_request* packet = (cmd56_request*)buffer;
-	if(memcmp(packet->magic, CMD56_MAGIC, sizeof(packet->magic)) != 0) {
+	cmd56_request* request = (cmd56_request*)buffer;
+	if(memcmp(request->magic, CMD56_MAGIC, sizeof(request->magic)) != 0) {
 		return;
 	}
-	handle_packet(state, (cmd56_request*)buffer, (cmd56_response*)response);
+	handle_request(state, (cmd56_request*)buffer, (cmd56_response*)response);
 }
