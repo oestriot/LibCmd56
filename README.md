@@ -43,7 +43,7 @@ int main() {
 	// .. state.per_cart_keys.packet20_key
 	// .. state.per_cart_keys.packet18_key
 	
-	return res; // < 0 = success
+	return res; // == 0 (or GC_AUTH_OK) = success
 
 }
 
