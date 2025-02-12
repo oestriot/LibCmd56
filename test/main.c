@@ -84,58 +84,66 @@ int test_replay() {
 	vRecv = fopen("from_vita.bin", "rb");
 	gRecv = fopen("from_gc.bin", "rb");
 
-	for (uint32_t i = 0; i < 1; i++) {
-		size_t vitaPos = 0;
-		size_t gcPos = 0;
+	
+	size_t vitaPos = 0;
+	size_t gcPos = 0;
 
-		uint8_t VITA_PACKET[0x200];
-		uint8_t GC_PACKET[0x200];
-		uint8_t EXPECTED_GC_PACKET[0x200];
+	uint8_t VITA_PACKET[0x200];
+	uint8_t GC_PACKET[0x200];
+	uint8_t EXPECTED_GC_PACKET[0x200];
 
-		int packetId = 0;
-		for (; res == 0; packetId++) {
-			// Copy packet data from buffers
-			if (vitaPos >= vitaSize) break;
-			memcpy(VITA_PACKET, vitaBuffer + vitaPos, sizeof(VITA_PACKET));
-			vitaPos += sizeof(VITA_PACKET);
-			LOG("\n== TESTING PACKET %i ==\n", packetId);
+	int requestId = 0;
+	int packetId = 0;
+	for (; res == 0; requestId++) {
+		// Copy packet data from buffers
+		if (vitaPos >= vitaSize) break;
+		memcpy(VITA_PACKET, vitaBuffer + vitaPos, sizeof(VITA_PACKET));
+		vitaPos += sizeof(VITA_PACKET);
+		LOG("\n== TESTING REQUEST %i ==\n", requestId);
+		
+		LOG("\n=== TESTING PACKET %i ===\n", packetId);
+		packetId++;
 
-			LOG("> ");
-			LOG_BUFFER(VITA_PACKET, sizeof(VITA_PACKET));
+		LOG("> ");
+		LOG_BUFFER(VITA_PACKET, sizeof(VITA_PACKET));
 
-			gc_cmd56_run(&gc_state, VITA_PACKET, GC_PACKET);
+		gc_cmd56_run(&gc_state, VITA_PACKET, GC_PACKET);
+		
 
-			LOG("< ");
-			LOG_BUFFER(GC_PACKET, sizeof(GC_PACKET));
+		LOG("\n=== TESTING PACKET %i ===\n", packetId);
+		packetId++;
 
-			memcpy(EXPECTED_GC_PACKET, gcBuffer + gcPos, sizeof(EXPECTED_GC_PACKET));
-			gcPos += sizeof(EXPECTED_GC_PACKET);
+		LOG("< ");
+		LOG_BUFFER(GC_PACKET, sizeof(GC_PACKET));
 
-			if (memcmp(EXPECTED_GC_PACKET, GC_PACKET, sizeof(GC_PACKET)) != 0) {
-				LOG("NOT MATCH EXPECTED !!\n");
-				LOG("EXPECTED: ");
-				LOG_BUFFER(EXPECTED_GC_PACKET, sizeof(EXPECTED_GC_PACKET));
+		memcpy(EXPECTED_GC_PACKET, gcBuffer + gcPos, sizeof(EXPECTED_GC_PACKET));
+		gcPos += sizeof(EXPECTED_GC_PACKET);
 
-				res = 1;
-			}
-			else {
-				LOG("SUCCESS!\n");
-			}
+		if (memcmp(EXPECTED_GC_PACKET, GC_PACKET, sizeof(GC_PACKET)) != 0) {
+			LOG("NOT MATCH EXPECTED !!\n");
+			LOG("EXPECTED: ");
+			LOG_BUFFER(EXPECTED_GC_PACKET, sizeof(EXPECTED_GC_PACKET));
+
+			res = 1;
 		}
-
-		LOG("GOT TO PACKET: %i\n", packetId);
-		if (packetId >= 10) {
-			LOG("TESTS SUCCEEEDED\n");
+		else {
+			LOG("SUCCESS!\n");
 		}
-
-		free(vitaBuffer);
-		free(gcBuffer);
-		return res;
 	}
+
+	LOG("GOT TO REQUEST: %i\n", requestId);
+	if (requestId >= 10) {
+		LOG("TESTS SUCCEEEDED\n");
+	}
+
+	free(vitaBuffer);
+	free(gcBuffer);
+	return res;
 }
 
 #endif
 
+#define IMPL_TEST 1
 #ifdef IMPL_TEST
 int test_own_implementation() {
 	int res = vita_cmd56_run(&vita_state);

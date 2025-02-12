@@ -3,7 +3,10 @@
 #include "compiler_defs.h"
 #include "cmd56.h"
 
-#define make_short(b1, b2) ((b2 << 8) | b1)
+#define make_short(b1, b2) ((b2 << 8) | (b1 << 0))
+#define make_int24(b1, b2, b3) ((b3 << 16) | (b2 << 8) | (b1 << 0))
+#define make_int(b1, b2, b3, b4) ((b4 << 32) | (b3 << 16) | (b2 << 8) | (b1 << 0))
+
 extern const uint8_t CMD56_MAGIC[0x20];
 
 typedef uint16_t cmd56_lock_status;

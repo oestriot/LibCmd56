@@ -25,30 +25,40 @@ void handle_cmd_status(gc_cmd56_state* state, cmd56_request* packet, cmd56_respo
 
 void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
 	cmd56_response_start(packet, response);
+	// decrypt 0x30 bytes of the packet ...
+	decrypt_cbc_zero_iv(&state->master_key, packet->data, 0x30);
+
 	uint8_t* vita_authenticity_proof = packet->data;
 
-	decrypt_cbc_zero_iv(&state->master_key, vita_authenticity_proof, 0x30);
-	LOG("(GC) decrypted VITA_AUTHENTICITY_PROOF buffer: ");
+	// log everything
+	LOG("(GC) decrypted vita_authenticity_proof buffer: ");
 	LOG_BUFFER(vita_authenticity_proof, 0x30);
 
-	LOG("(GC) got secondary_key0: ");
-	LOG_BUFFER(vita_authenticity_proof + 0x00, 0x10);
-	AES_init_ctx(&state->secondary_key0, vita_authenticity_proof + 0x00);
+	LOG("(GC) secondary_key0: ");
+	uint8_t* got_secondary_key0 = vita_authenticity_proof + 0x00;
+	LOG_BUFFER(got_secondary_key0, 0x10);
+	
+	uint8_t* got_challenge = vita_authenticity_proof + 0x10;
+	LOG("(GC) got_challenge: ");
+	LOG_BUFFER(got_challenge, 0x20);
+
+	AES_init_ctx(&state->secondary_key0, got_secondary_key0);
 
 	// calculate challenge bytes ...
-	uint8_t* challenge = state->vita_random;
-	challenge[0x00] |= 0x80;
-	challenge[0x10] |= 0x80;
+	uint8_t* exp_challenge = state->vita_random;
+	exp_challenge[0x00] |= 0x80;
+	exp_challenge[0x10] |= 0x80;
 
-	if (memcmp(challenge, vita_authenticity_proof + 0x10, 0x20) == 0) {
-		LOG("(GC) Authenticated as real PSVita.\n");
+
+	if (memcmp(exp_challenge, got_challenge, 0x20) == 0) {
+		LOG("(GC) exp_challenge == got_challenge, so authenticated as real PSVita.\n");
 		state->lock_status = GC_UNLOCKED;
 	}
 	else {
 		LOG("(GC) This is not a real PSVita!\n");
 
 		LOG("(GC) expected: ");
-		LOG_BUFFER(challenge, 0x20);
+		LOG_BUFFER(exp_challenge, 0x20);
 
 		LOG("(GC) got: vita_authenticity_proof+0x10: ");
 		LOG_BUFFER(vita_authenticity_proof + 0x10, 0x20);
@@ -69,14 +79,36 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* packet
 	response->data[0x2] = (state->key_id & 0xFF00) >> 8;
 	response->data[0x3] = (state->key_id & 0x00FF);
 
+	rand_bytes(state->cart_random, sizeof(state->cart_random));
+
+	// unknown paramaters, copied values from "Superdimension Neptune vs Sega Hard Girls".
+	// half of it seems to extend into the CART_RANDOM even, its very strange.
+	// the vita does nothing with these, so i can't easily know what there for
+	// this is just included incase they decide to do something with them in a later firmware..
+
 	response->data[0x4] = 0x00;
 	response->data[0x5] = 0x02;
 
 	response->data[0x6] = 0x00;
 	response->data[0x7] = 0x03;
+ 
+	state->cart_random[0x0] = 0x00;
+	state->cart_random[0x1] = 0x01;
 
+	state->cart_random[0x2] = 0x00;
+	state->cart_random[0x3] = 0x01;
 	
-	rand_bytes(state->cart_random, sizeof(state->cart_random));
+	state->cart_random[0x4] = 0x00;
+	state->cart_random[0x5] = 0x00;
+	state->cart_random[0x6] = 0x00;
+	state->cart_random[0x7] = 0x00;
+
+	state->cart_random[0x8] = 0x00;
+	state->cart_random[0x9] = 0x00;
+	state->cart_random[0xA] = 0x00;
+	state->cart_random[0xB] = 0x03; // i have seen this one be 0x05 in another game.
+	state->cart_random[0xC] = 0x00;
+
 	memcpy(response->data + 0x8, state->cart_random, sizeof(state->cart_random));
 	
 	LOG("(GC) Cart Random: ");
@@ -118,12 +150,19 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 	memcpy(response->data, packet->data, 0x20);
 	decrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x20);
 
-	uint8_t cmac_output[0x10];
-	derive_cmac_packet18_packet20(&state->secondary_key0, response->data, make_short(packet->command, packet->additional_data_size), cmac_output, 0x20);
-	if (memcmp(cmac_output, packet->data + 0x20, sizeof(cmac_output)) == 0) {
+	uint8_t* exp_cmac = packet->data + 0x20;
+	uint8_t got_cmac[0x10];
+	
+	derive_cmac_packet18_packet20(&state->secondary_key0, 
+								  response->data,
+								  make_int24(packet->command, 0x0, packet->additional_data_size), 
+								  got_cmac, 
+								  0x20);
+	
+	if (memcmp(got_cmac, exp_cmac, sizeof(got_cmac)) == 0) {
 		LOG("(GC) CMAC validated success\n");
 
-		LOG("(GC) challenge random: ");
+		LOG("(GC) exp_challenge random: ");
 		LOG_BUFFER(response->data, 0x20);
 
 		// copy packet18 key
@@ -139,6 +178,11 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 		derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x30, 0x30);
 	}
 	else {
+		LOG("(GC) Cmac Validation Failed!!\n");
+		LOG("(GC) expected: ");
+		LOG_BUFFER(exp_cmac, sizeof(got_cmac));
+		LOG("(GC) got:");
+		LOG_BUFFER(got_cmac, sizeof(got_cmac));
 		cmd56_response_error(response, 0x11);
 	}
 
@@ -170,23 +214,30 @@ void handle_vita_random(gc_cmd56_state* state, cmd56_request* packet, cmd56_resp
 	cmd56_response_start(packet, response);
 
 	gcauthmgr_keyid got_key_id = make_short(packet->data[1], packet->data[0]);
+	const uint8_t bugged_vita_random_size = 0x10;
 
 	if (got_key_id == state->key_id) {
-		LOG("got_key_id == state->key_id\n");
+		LOG("(GC) got_key_id == state->key_id\n");
 
-		memcpy(state->vita_random, packet->data + 0x2, sizeof(state->vita_random));
-
-		LOG("(GC) Vita Random: ");
+		memcpy(state->vita_random, packet->data + 0x2, bugged_vita_random_size);
+		LOG("(GC) read vita_random: ");
 		LOG_BUFFER(state->vita_random, sizeof(state->vita_random));
 
-		memcpy(response->data + 0x10, state->vita_random, sizeof(state->vita_random));
+		// offical gamecarts have random data here, 
+		// vita doesn't do anything with these extra bytes
+		// adding this for completeness sake.
 
-		LOG("(GC) handle_vita_random Plaintext: ");
+		rand_bytes(response->data + 0x00, 0x10);
+		LOG("(GC) unused bytes:");
+		LOG_BUFFER(response->data + 0x00, 0x10);
+
+		memcpy(response->data + 0x10, state->vita_random, bugged_vita_random_size);
+		LOG("(GC) handle_vita_random plaintext: ");
 		LOG_BUFFER(response->data, 0x20);
 
 		encrypt_cbc_zero_iv(&state->master_key, response->data, 0x20);
 
-		LOG("(GC) handle_vita_random Ciphertext: ");
+		LOG("(GC) handle_vita_random ciphertext: ");
 		LOG_BUFFER(response->data, 0x20);
 	}
 	else {
