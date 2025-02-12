@@ -1,32 +1,19 @@
-#include "../log.h"
 #include "aes.h"
 #include "aes_cmac.h"
 
 #define AES_BLOCKSIZE 16
 
-#ifdef _DEBUG
-static void print_block(uint8_t *ptr)
-{
-    int i;
-    for(i = 0; i < 16; i++)
-        printf("%2.2x ", ptr[i]);
-    printf("\n");
-}
-#endif
-
-
 static void left_shift(uint8_t *dest, uint8_t *src)
 {
     uint8_t overflow = 0;
 
-    // print_block(src);
     for(int i = 15; i >= 0; i--)
     {
         dest[i] = src[i] << 1;
         dest[i] |= overflow;
         overflow = (src[i] >> 7) & 1;
     }
-    // print_block(dest);
+
 }
 
 //put 0x80, 0x00, 0x00 after the first len bytes of block
@@ -56,12 +43,6 @@ static inline void gen_subkey(AES_ctx *aes_ctx, uint8_t *subkey_1, uint8_t *subk
     if(subkey_1[0] & 0x80)
         subkey_2[15] ^= 0x87;
 
-#ifdef _DEBUG
-    puts("K1:");
-    print_block(subkey_1);
-    puts("K2:");
-    print_block(subkey_2);
-#endif
 }
 
 
@@ -78,19 +59,7 @@ void AES_CMAC_buffer(AES_ctx* aes_ctx, void *input_p, size_t length, uint8_t *ma
     for(uint32_t i = 0; i < length; i+= AES_BLOCKSIZE)
     {
 
-#ifdef _DEBUG
-        printf("Position %lx\n", i);
-        printf("M:\n");
-        print_block(input);
-        printf("IV:\n");
-        print_block(previous_block_ciphertext);
-#endif
         block_xor_triple(input, previous_block_ciphertext, temp);
-
-#ifdef _DEBUG
-        printf("xored with IV:\n");
-        print_block(temp);
-#endif
 
         if(i + AES_BLOCKSIZE == length)
         {
@@ -103,11 +72,6 @@ void AES_CMAC_buffer(AES_ctx* aes_ctx, void *input_p, size_t length, uint8_t *ma
             add_padding(temp, length - i);
             block_xor_triple(temp, subkey_2, temp);
         }
-
-#ifdef _DEBUG
-        printf("xored with key:\n");
-        print_block(temp);
-#endif
 
         AES_ECB_encrypt(aes_ctx, temp);
         memcpy(previous_block_ciphertext, temp, AES_BLOCKSIZE);

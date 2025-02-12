@@ -6,16 +6,17 @@
 #include "log.h"
 
 #define check_success(code) do { int ret = code; if(ret != GC_AUTH_OK) return ret; } while(0);
-#define send_packet(x) do { x->send(&x->cmd56_request, sizeof(cmd56_request)); \
-							x->recv(&x->cmd56_response, sizeof(cmd56_response)); } while(0);
+#define send_packet(x) do { LOG("send_packet: %s\n", __FUNCTION__); \
+							x->send( ((const uint8_t*)&x->cmd56_request), sizeof(cmd56_request)); \
+							x->recv( ((uint8_t*)&x->cmd56_response),      sizeof(cmd56_response)); } while(0);
 #define rand_bytes_or_w_80(buf, size) do { rand_bytes(buf, size); \
 									  ((uint8_t*)buf)[0] |= 0x80; } while(0);\
 
-#define GC_AUTH_RETURN_STATUS (state->cmd56_response.error_code < 0x0) ? GC_AUTH_ERROR_REPORTED : GC_AUTH_OK;
+#define GC_AUTH_RETURN_STATUS (state->cmd56_response.error_code != 0x0) ? GC_AUTH_ERROR_REPORTED : GC_AUTH_OK;
 
 
 vita_error_code start_request(vita_cmd56_state* state) {
-	cmd56_request_start(&state->cmd56_request, START, 0x3, 0x13, 0x31);
+	cmd56_request_start(&state->cmd56_request, CMD_START, 0x3, 0x13, 0x31);
 	send_packet(state);
 
 	if (state->cmd56_response.data[0xD] == 0x1 && state->cmd56_response.data[0xE] == 0x1 && state->cmd56_response.data[0xF] == 0x4) {
@@ -25,7 +26,7 @@ vita_error_code start_request(vita_cmd56_state* state) {
 }
 
 vita_error_code get_status(vita_cmd56_state* state) {
-	cmd56_request_start(&state->cmd56_request, GET_STATUS, 0x3, 0x5, 0x23);
+	cmd56_request_start(&state->cmd56_request, CMD_GET_STATUS, 0x3, 0x5, 0x23);
 	send_packet(state);
 
 	state->lock_status = make_short(state->cmd56_response.data[0x0], state->cmd56_response.data[0x1]);
@@ -34,7 +35,7 @@ vita_error_code get_status(vita_cmd56_state* state) {
 }
 
 vita_error_code get_cart_random(vita_cmd56_state* state) {
-	cmd56_request_start(&state->cmd56_request, GENERATE_RANDOM_KEYSEED, 0x3, 0x2B, 0x2);
+	cmd56_request_start(&state->cmd56_request, CMD_GENERATE_RANDOM_KEYSEED, 0x3, 0x2B, 0x2);
 	send_packet(state);
 	
 	state->key_id = make_short(state->cmd56_response.data[0x3], state->cmd56_response.data[0x2]);
@@ -61,66 +62,99 @@ vita_error_code get_cart_random(vita_cmd56_state* state) {
 }
 
 vita_error_code verify_vita_random(vita_cmd56_state* state) {
-	rand_bytes(state->vita_random, sizeof(state->vita_random));
 	
-	cmd56_request_start(&state->cmd56_request, VERIFY_VITA_RANDOM, 0x15, 0x23, 0x3);
+	// replicate a bug in 3.60: only first 0x10 bytes of VITA_RANDOM
+	// are actually randomized, the rest is all 0's for some reason.
+
+	rand_bytes(state->vita_random, 0x10);
+	
+	cmd56_request_start(&state->cmd56_request, CMD_VERIFY_VITA_RANDOM, 0x15, 0x23, 0x3);
+	
+	// copy random and key id into it.
 	memcpy(state->cmd56_request.data + 0x2, state->vita_random, sizeof(state->vita_random));
+	state->cmd56_request.data[0x1] = (state->key_id & 0x00FF);
+	state->cmd56_request.data[0x0] = (state->key_id & 0xFF00) >> 8;
+
 	send_packet(state);
 
-	LOG("(VITA) Ciphertext: ");
-	LOG_BUFFER(state->cmd56_response.data, 0x20);
+	if (state->cmd56_response.error_code == GC_AUTH_OK) {
+		LOG("(VITA) Ciphertext: ");
+		LOG_BUFFER(state->cmd56_response.data, 0x20);
 
-	decrypt_cbc_zero_iv(&state->master_key, state->cmd56_response.data, 0x20);
+		decrypt_cbc_zero_iv(&state->master_key, state->cmd56_response.data, 0x20);
+		
+		LOG("(VITA) Plaintext: ");
+		LOG_BUFFER(state->cmd56_response.data, 0x20);
+
 	
-	LOG("(VITA) Plaintext: ");
-	LOG_BUFFER(state->cmd56_response.data, 0x20);
+		uint8_t* got_vita_random = state->cmd56_response.data + 0x10;
+		if (memcmp(got_vita_random, state->vita_random, sizeof(state->vita_random)) == 0) {
+			return GC_AUTH_OK;
+		}
+		else {
+			LOG("(VITA) Invalid VITA_RANDOM! got: ");
+			LOG_BUFFER(got_vita_random, sizeof(state->vita_random));
+			LOG("expected: ");
+			LOG_BUFFER(state->vita_random, sizeof(state->vita_random));
 
-	if (memcmp(state->cmd56_response.data + 0x10, state->vita_random, sizeof(state->vita_random)) == 0) {
-		return GC_AUTH_RETURN_STATUS;
+			return GC_AUTH_ERROR_VERIFY_CART_RANDOM_INVALID_CART_RANDOM;
+
+			return GC_AUTH_ERROR_VERIFY_VITA_RANDOM_INVALID;
+		}
+		return GC_AUTH_ERROR_VERIFY_VITA_RANDOM_FAIL;
 	}
-	else {
-		LOG("(VITA) got random and sent random dont match!\n");
-		return GC_AUTH_ERROR_VERIFY_VITA_RANDOM_INVALID;
-	}
-	return GC_AUTH_ERROR_VERIFY_VITA_RANDOM_FAIL;
+
+	LOG("(VITA) state->cmd56_response.error_code: 0x%X\n", state->cmd56_response.error_code);
+	return GC_AUTH_ERROR_REPORTED;
 }
 
 vita_error_code generate_vita_authenticity_proof(vita_cmd56_state* state) {
-	char secondary_key0[0x10];
+	uint8_t secondary_key0[0x10];
 	rand_bytes_or_w_80(secondary_key0, sizeof(secondary_key0));
 
 	LOG("(VITA) secondary_key0: ");
 	LOG_BUFFER(secondary_key0, sizeof(secondary_key0));
 	AES_init_ctx(&state->secondary_key0, secondary_key0);
 
-	cmd56_request_start(&state->cmd56_request, VITA_AUTHENTICITY_CHECK, 0x33, 0x3, 0x5);
+	cmd56_request_start(&state->cmd56_request, CMD_VITA_AUTHENTICITY_CHECK, 0x33, 0x3, 0x5);
 
+	// copy secondary_key0 to packet start
 	memcpy(state->cmd56_request.data + 0x00, secondary_key0, sizeof(secondary_key0));
-	memcpy(state->cmd56_request.data + 0x10, state->vita_random, sizeof(state->vita_random));
 	
+	// copy vita_random to challenge
 	uint8_t* challenge = state->cmd56_request.data + 0x10;
+	memcpy(challenge, state->vita_random, sizeof(state->vita_random));
+	
+	// or the challenge bytes with 0x80, for.. some reason?
 	challenge[0x00] |= 0x80;
 	challenge[0x10] |= 0x80;
 
+	LOG("(VITA) Challenge bytes: ");
+	LOG_BUFFER(challenge, sizeof(state->vita_random));
+
+	LOG("(VITA) plaintext VITA_AUTHENTICITY_PROOF: ");
+	LOG_BUFFER(state->cmd56_request.data, 0x30);
+
 	encrypt_cbc_zero_iv(&state->master_key, state->cmd56_request.data, 0x30);
 
-	LOG("(VITA) VITA_AUTHENTICITY_PROOF: ");
+	LOG("(VITA) encrypted VITA_AUTHENTICITY_PROOF: ");
 	LOG_BUFFER(state->cmd56_request.data, 0x30);
 	
 	send_packet(state);
 
-	if (state->cmd56_response.data[0] == 0 || state->cmd56_response.data[1] == 0 || state->cmd56_response.data[2] == 0) {
-		return GC_AUTH_RETURN_STATUS;
+	if (state->cmd56_response.error_code != GC_AUTH_OK) {
+		LOG("(VITA) VITA_AUTHNETICITY_PROOF Fail (i'm not a real psvita :CCC) (error code = 0x%X)\n", state->cmd56_response.error_code);
+		return GC_AUTH_ERROR_REPORTED;
 	}
 	else {
-		return GC_AUTH_ERROR_VERIFY_VITA_AUTH_PROOF_FAIL;
+		return GC_AUTH_OK;
 	}
 }
 
 
 vita_error_code verify_cart_random(vita_cmd56_state* state) {
 	uint8_t* exp_challenge = state->cmd56_request.data;
-	cmd56_request_start(&state->cmd56_request, SECONDARY_KEY0_CHALLENGE, 0x13, 0x43, 0x7);
+	cmd56_request_start(&state->cmd56_request, CMD_SECONDARY_KEY0_CHALLENGE, 0x13, 0x43, 0x7);
 	rand_bytes_or_w_80(exp_challenge, 0x10);
 	
 	LOG("(VITA) CHALLENGE BYTES: ");
@@ -140,9 +174,9 @@ vita_error_code verify_cart_random(vita_cmd56_state* state) {
 		}
 		else {
 			LOG("(VITA) Invalid CART_RANDOM! got: ");
-			LOG_BUFFER(got_cart_random, 0x10);
+			LOG_BUFFER(got_cart_random, sizeof(state->cart_random));
 			LOG("expected: ");
-			LOG_BUFFER(state->cart_random, 0x10);
+			LOG_BUFFER(state->cart_random, sizeof(state->cart_random));
 
 			return GC_AUTH_ERROR_VERIFY_CART_RANDOM_INVALID_CART_RANDOM;
 		}
@@ -161,7 +195,7 @@ vita_error_code verify_cart_random(vita_cmd56_state* state) {
 
 vita_error_code get_packet18_key(vita_cmd56_state* state) {
 	uint8_t exp_challenge[0x20];
-	cmd56_request_start(&state->cmd56_request, P18_KEY_AND_CMAC_SIGNATURE, 0x33, 0x43, 0x11);
+	cmd56_request_start(&state->cmd56_request, CMD_P18_KEY_AND_CMAC_SIGNATURE, 0x33, 0x43, 0x11);
 	
 	rand_bytes(exp_challenge, sizeof(exp_challenge));
 	memcpy(state->cmd56_request.data + 0x00, exp_challenge, sizeof(exp_challenge));
@@ -214,12 +248,12 @@ vita_error_code get_packet18_key(vita_cmd56_state* state) {
 			return GC_AUTH_ERROR_P18_KEY_INVALID_CMAC;
 		}
 	}
-	
+	LOG("(VITA) state->cmd56_response.error_code: 0x%X\n", state->cmd56_response.error_code);
 	return GC_AUTH_ERROR_REPORTED;
 }
 
 vita_error_code get_packet20_key(vita_cmd56_state* state) {
-	cmd56_request_start(&state->cmd56_request, P20_KEY_AND_CMAC_SIGNATURE, 0x13, 0x53, 0x19);
+	cmd56_request_start(&state->cmd56_request, CMD_P20_KEY_AND_CMAC_SIGNATURE, 0x13, 0x53, 0x19);
 	uint8_t* exp_challange = state->cmd56_request.data + 0x00;
 	rand_bytes_or_w_80(exp_challange, 0x10);
 	send_packet(state);
@@ -263,6 +297,7 @@ vita_error_code get_packet20_key(vita_cmd56_state* state) {
 			return GC_AUTH_ERROR_P20_KEY_INVALID_CMAC;
 		}
 	}
+	LOG("(VITA) state->cmd56_response.error_code: 0x%X\n", state->cmd56_response.error_code);
 	return GC_AUTH_ERROR_REPORTED;
 }
 

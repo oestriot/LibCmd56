@@ -14,14 +14,14 @@ enum cmd56_lock_status {
 
 typedef uint8_t cmd56_command;
 enum cmd56_commands {
-    START = 0xC4,
-    GET_STATUS = 0xC2,
-    GENERATE_RANDOM_KEYSEED = 0xA1,
-    VERIFY_VITA_RANDOM = 0xA2,
-    VITA_AUTHENTICITY_CHECK = 0xA3,
-    SECONDARY_KEY0_CHALLENGE = 0xA4,
-    P18_KEY_AND_CMAC_SIGNATURE = 0xB1,
-    P20_KEY_AND_CMAC_SIGNATURE = 0xC1
+    CMD_START = 0xC4,
+    CMD_GET_STATUS = 0xC2,
+    CMD_GENERATE_RANDOM_KEYSEED = 0xA1,
+    CMD_VERIFY_VITA_RANDOM = 0xA2,
+    CMD_VITA_AUTHENTICITY_CHECK = 0xA3,
+    CMD_SECONDARY_KEY0_CHALLENGE = 0xA4,
+    CMD_P18_KEY_AND_CMAC_SIGNATURE = 0xB1,
+    CMD_P20_KEY_AND_CMAC_SIGNATURE = 0xC1
 };
 
 typedef struct cmd56_keys {
@@ -49,6 +49,8 @@ typedef struct cmd56_response {
 } cmd56_response;
 
 void cmd56_response_start(cmd56_request* packet_buffer, cmd56_response* response);
+void cmd56_response_error(cmd56_response* response, uint8_t error);
+
 void cmd56_request_start(cmd56_request* request, cmd56_command cmd, uint8_t data_size, uint32_t expected_response_size, uint32_t expected_response_code);
 
 #endif /* CMD56_H */

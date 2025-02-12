@@ -28,10 +28,10 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* packet
 	uint8_t* vita_authenticity_proof = packet->data;
 
 	decrypt_cbc_zero_iv(&state->master_key, vita_authenticity_proof, 0x30);
-	LOG("(GC) VITA_AUTHENTICITY_PROOF: ");
+	LOG("(GC) decrypted VITA_AUTHENTICITY_PROOF buffer: ");
 	LOG_BUFFER(vita_authenticity_proof, 0x30);
 
-	LOG("(GC) secondary_key0: ");
+	LOG("(GC) got secondary_key0: ");
 	LOG_BUFFER(vita_authenticity_proof + 0x00, 0x10);
 	AES_init_ctx(&state->secondary_key0, vita_authenticity_proof + 0x00);
 
@@ -47,18 +47,15 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* packet
 	else {
 		LOG("(GC) This is not a real PSVita!\n");
 
-		LOG("(GC) SECONDARY_KEY0_CHALLENGE: ");
+		LOG("(GC) expected: ");
 		LOG_BUFFER(challenge, 0x20);
 
-		LOG("(GC) vita_authenticity_proof+0x10: ");
+		LOG("(GC) got: vita_authenticity_proof+0x10: ");
 		LOG_BUFFER(vita_authenticity_proof + 0x10, 0x20);
 
 		state->lock_status = GC_LOCKED;
+		cmd56_response_error(response, 0xF1);
 	}
-
-	response->data[0x0] = 0x00;
-	response->data[0x1] = 0x00;
-	response->data[0x3] = 0x00;
 }
 
 void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
@@ -142,7 +139,7 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 		derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, response->data + 0x30, 0x30);
 	}
 	else {
-		response->error_code = 0xFF;
+		cmd56_response_error(response, 0x11);
 	}
 
 }
@@ -172,20 +169,32 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* pack
 void handle_vita_random(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* response) {
 	cmd56_response_start(packet, response);
 
-	memcpy(state->vita_random, packet->data + 0x2, sizeof(state->vita_random));
-	
-	LOG("(GC) Vita Random: ");
-	LOG_BUFFER(state->vita_random, sizeof(state->vita_random));
+	gcauthmgr_keyid got_key_id = make_short(packet->data[1], packet->data[0]);
 
-	memcpy(response->data + 0x10, state->vita_random, sizeof(state->vita_random));
+	if (got_key_id == state->key_id) {
+		LOG("got_key_id == state->key_id\n");
 
-	LOG("(GC) handle_vita_random Plaintext: ");
-	LOG_BUFFER(response->data, 0x20);
+		memcpy(state->vita_random, packet->data + 0x2, sizeof(state->vita_random));
 
-	encrypt_cbc_zero_iv(&state->master_key, response->data, 0x20);
+		LOG("(GC) Vita Random: ");
+		LOG_BUFFER(state->vita_random, sizeof(state->vita_random));
 
-	LOG("(GC) handle_vita_random Ciphertext: ");
-	LOG_BUFFER(response->data, 0x20);
+		memcpy(response->data + 0x10, state->vita_random, sizeof(state->vita_random));
+
+		LOG("(GC) handle_vita_random Plaintext: ");
+		LOG_BUFFER(response->data, 0x20);
+
+		encrypt_cbc_zero_iv(&state->master_key, response->data, 0x20);
+
+		LOG("(GC) handle_vita_random Ciphertext: ");
+		LOG_BUFFER(response->data, 0x20);
+	}
+	else {
+		LOG("(GC) key_id from vita not acknowledged? (got: 0x%x, expected: 0x%x)\n", got_key_id, state->key_id);
+		cmd56_response_error(response, 0x11);
+	}
+
+
 }
 
 void handle_unknown_packet(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* packet_response) {
@@ -194,35 +203,35 @@ void handle_unknown_packet(gc_cmd56_state* state, cmd56_request* packet, cmd56_r
 
 void handle_packet(gc_cmd56_state* state, cmd56_request* packet, cmd56_response* packet_response) {
 	switch(packet->command) {
-		case START: //packet1, packet2
+		case CMD_START: //packet1, packet2
 			handle_cmd_start(state, packet, packet_response);
 			break;
-		case GET_STATUS: // packet3, packet4
+		case CMD_GET_STATUS: // packet3, packet4
 			handle_cmd_status(state, packet, packet_response);
 			break;
-		case GENERATE_RANDOM_KEYSEED: // packet5, packet6
+		case CMD_GENERATE_RANDOM_KEYSEED: // packet5, packet6
 			handle_generate_random_keyseed(state, packet, packet_response);
 			break;
-		case VERIFY_VITA_RANDOM: // packet7, packet8
+		case CMD_VERIFY_VITA_RANDOM: // packet7, packet8
 			handle_vita_random(state, packet, packet_response);
 			break;
-		case VITA_AUTHENTICITY_CHECK: // packet9, packet10
+		case CMD_VITA_AUTHENTICITY_CHECK: // packet9, packet10
 			handle_vita_authenticity_check(state, packet, packet_response);
 			break;
 			
 		// packet11, packet12 -> GET_STATUS again
 		
-		case SECONDARY_KEY0_CHALLENGE: // packet13, packet14
+		case CMD_SECONDARY_KEY0_CHALLENGE: // packet13, packet14
 			handle_challenge(state, packet, packet_response);
 			break;
 
-		case P18_KEY_AND_CMAC_SIGNATURE: // packet15, packet16
+		case CMD_P18_KEY_AND_CMAC_SIGNATURE: // packet15, packet16
 			handle_p18key_and_cmac_signature(state, packet, packet_response);
 			break;
 
 		// packet17, packet18 -> P18_KEY_AND_CMAC_SIGNATURE again
 
-		case P20_KEY_AND_CMAC_SIGNATURE: // packet19, packet20
+		case CMD_P20_KEY_AND_CMAC_SIGNATURE: // packet19, packet20
 			handle_p20key_and_cmac_signature(state, packet, packet_response);
 			break;
 		default:

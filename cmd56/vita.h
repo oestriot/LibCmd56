@@ -5,8 +5,8 @@
 #include "cmd56.h"
 #include "f00d_emu.h"
 
-typedef void (*send_t)(const char* data, size_t* size);
-typedef void (*recv_t)(const char* data, size_t* size);
+typedef void (*send_t)(const uint8_t* data, size_t size);
+typedef void (*recv_t)(uint8_t* data, size_t size);
 
 typedef enum vita_error_code {
     GC_AUTH_OK = 0x00,

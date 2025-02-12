@@ -15,6 +15,7 @@ static cmd56_keys keys = { { 0x13, 0x29, 0x86, 0x29, 0x00, 0x63, 0x00, 0x4E, 0x0
 static gc_cmd56_state gc_state;
 static vita_cmd56_state vita_state;
 
+
 static uint8_t VITA_PACKET[0x200];
 static uint8_t GC_PACKET[0x200];
 
@@ -31,9 +32,112 @@ void emu_recv(char* buf, size_t size) {
 	LOG_BUFFER(GC_PACKET, sizeof(GC_PACKET));
 }
 
-int main(int argc, char** argv) {
-	gc_cmd56_init(&gc_state, &keys); // initalize fake GC
-	vita_cmd56_init(&vita_state, emu_send, emu_recv);
+#define REPLAY_TEST 1
+#ifdef REPLAY_TEST
+
+static FILE* vRecv = NULL;
+static FILE* gRecv = NULL;
+
+int load_files(char** vitaBuffer, char** gcBuffer, size_t* vSize, size_t* gSize) {
+	FILE* vRecv = fopen("from_vita.bin", "rb");
+	FILE* gRecv = fopen("from_gc.bin", "rb");
+
+	if (!vRecv || !gRecv) {
+		fprintf(stderr, "Error opening files.\n");
+		return 1;
+	}
+
+	fseek(vRecv, 0, SEEK_END);
+	*vSize = ftell(vRecv);
+	fseek(vRecv, 0, SEEK_SET);
+
+	fseek(gRecv, 0, SEEK_END);
+	*gSize = ftell(gRecv);
+	fseek(gRecv, 0, SEEK_SET);
+
+	*vitaBuffer = malloc(*vSize);
+	*gcBuffer = malloc(*gSize);
+
+	if (!*vitaBuffer || !*gcBuffer) {
+		fprintf(stderr, "Memory allocation failed.\n");
+		fclose(vRecv);
+		fclose(gRecv);
+		return 1;
+	}
+
+	fread(*vitaBuffer, 1, *vSize, vRecv);
+	fread(*gcBuffer, 1, *gSize, gRecv);
+
+	fclose(vRecv);
+	fclose(gRecv);
+	return 0;
+}
+
+int test_replay() {
+	char* vitaBuffer;
+	char* gcBuffer;
+	size_t vitaSize;
+	size_t gcSize;
+
+	int res = load_files(&vitaBuffer, &gcBuffer, &vitaSize, &gcSize);
+	if (res != 0) return res;
+	vRecv = fopen("from_vita.bin", "rb");
+	gRecv = fopen("from_gc.bin", "rb");
+
+	for (uint32_t i = 0; i < 1; i++) {
+		size_t vitaPos = 0;
+		size_t gcPos = 0;
+
+		uint8_t VITA_PACKET[0x200];
+		uint8_t GC_PACKET[0x200];
+		uint8_t EXPECTED_GC_PACKET[0x200];
+
+		int packetId = 0;
+		for (; res == 0; packetId++) {
+			// Copy packet data from buffers
+			if (vitaPos >= vitaSize) break;
+			memcpy(VITA_PACKET, vitaBuffer + vitaPos, sizeof(VITA_PACKET));
+			vitaPos += sizeof(VITA_PACKET);
+			LOG("\n== TESTING PACKET %i ==\n", packetId);
+
+			LOG("> ");
+			LOG_BUFFER(VITA_PACKET, sizeof(VITA_PACKET));
+
+			gc_cmd56_run(&gc_state, VITA_PACKET, GC_PACKET);
+
+			LOG("< ");
+			LOG_BUFFER(GC_PACKET, sizeof(GC_PACKET));
+
+			memcpy(EXPECTED_GC_PACKET, gcBuffer + gcPos, sizeof(EXPECTED_GC_PACKET));
+			gcPos += sizeof(EXPECTED_GC_PACKET);
+
+			if (memcmp(EXPECTED_GC_PACKET, GC_PACKET, sizeof(GC_PACKET)) != 0) {
+				LOG("NOT MATCH EXPECTED !!\n");
+				LOG("EXPECTED: ");
+				LOG_BUFFER(EXPECTED_GC_PACKET, sizeof(EXPECTED_GC_PACKET));
+
+				res = 1;
+			}
+			else {
+				LOG("SUCCESS!\n");
+			}
+		}
+
+		LOG("GOT TO PACKET: %i\n", packetId);
+		if (packetId >= 10) {
+			LOG("TESTS SUCCEEEDED\n");
+		}
+
+		free(vitaBuffer);
+		free(gcBuffer);
+		return res;
+	}
+}
+
+#endif
+
+#ifdef IMPL_TEST
+int test_own_implementation() {
 	int res = vita_cmd56_run(&vita_state);
 	if (res != 0) {
 		LOG("Authentication Failed!\n");
@@ -51,6 +155,23 @@ int main(int argc, char** argv) {
 	LOG_BUFFER(vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));
 	LOG("gc_state.per_cart_keys.packet20_key\n");
 	LOG_BUFFER(gc_state.per_cart_keys.packet20_key, sizeof(gc_state.per_cart_keys.packet20_key));
+	
+	return res;
+}
+#endif
 
+int main(int argc, char** argv) {
+	int res = 0;
+	gc_cmd56_init(&gc_state, &keys); // initalize fake GC
+	vita_cmd56_init(&vita_state, emu_send, emu_recv); // initalize fake VITA
+
+#ifdef IMPL_TEST
+	res = test_own_implementation();
+	if (res < 0) return res;
+#endif
+#ifdef REPLAY_TEST
+	res = test_replay();
+	if (res < 0) return res;
+#endif
 	return res;
 }

@@ -1,5 +1,6 @@
 #include "compiler_defs.h"
 #include "cmd56.h"
+#include "log.h"
 #include "crypto/aes.h"
 #include "crypto/aes_cmac.h"
 
@@ -13,12 +14,22 @@ void cmd56_request_start(cmd56_request* request, cmd56_command cmd, uint8_t addi
 	request->expected_response_size = expected_response_size;
 	request->additional_data_size = additional_data_size;
 	request->request_size = additional_data_size;
+	LOG("cmd56_request_start cmd=0x%x resp_code=0x%x\n", request->command, request->expected_response_code);
 }
 
 void cmd56_response_start(cmd56_request* request_buffer, cmd56_response* response) {
 	memset(response, 0x00, sizeof(cmd56_response));
 	response->response_code = request_buffer->expected_response_code;
 	response->additional_data_size = 0;
-	response->response_size = __builtin_bswap16((unsigned short)request_buffer->expected_response_size);
+	response->response_size = __builtin_bswap16((request_buffer->expected_response_size > sizeof(cmd56_response)) ? sizeof(cmd56_response) : (uint16_t)request_buffer->expected_response_size);
 	response->error_code = 0;
+}
+
+void cmd56_response_error(cmd56_response* response, uint8_t error) {
+	response->error_code = error;
+
+	uint16_t size = __builtin_bswap16((uint16_t)response->response_size);
+	memset(response->data, 0xFF, size);
+	
+	LOG("cmd56_response_error error_code=0x%x\n", response->error_code);
 }
