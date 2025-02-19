@@ -40,9 +40,15 @@ int main() {
 	vita_cmd56_init(&state, send, recv); // functions to send/recv to sdcard ..
 	int res = vita_cmd56_run(&state); // run authentication 
 
-	// later can check:
-	// .. state.per_cart_keys.packet20_key
-	// .. state.per_cart_keys.packet18_key
+	// then check:
+	cmd56_keys per_cart_key;
+	vita_cmd56_get_keys(&state, &per_cart_key);
+	
+	// or alternatively
+
+	char packet20_key[0x20];
+	char packet18_key[0x20];
+	vita_cmd56_get_keys_ex(&state, packet20_key, packet18_key);
 	
 	return res; // == 0 (or GC_AUTH_OK) = success
 
