@@ -46,8 +46,8 @@ int main() {
 	
 	// or alternatively
 
-	char packet20_key[0x20];
-	char packet18_key[0x20];
+	uint8_t packet20_key[0x20];
+	uint8_t packet18_key[0x20];
 	vita_cmd56_get_keys_ex(&state, packet20_key, packet18_key);
 	
 	return res; // == 0 (or GC_AUTH_OK) = success
