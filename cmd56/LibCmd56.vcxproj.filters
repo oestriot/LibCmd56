@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="f00d_emu.c">
+    <ClCompile Include="cmd56_sm.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="gc.c">
@@ -25,9 +25,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="crypto\aes_cmac.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="rng.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="vita.c">
@@ -41,7 +38,7 @@
     <ClInclude Include="compiler_defs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="f00d_emu.h">
+    <ClInclude Include="cmd56_sm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="gc.h">
@@ -54,9 +51,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="crypto\aes_cmac.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="rng.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="vita.h">

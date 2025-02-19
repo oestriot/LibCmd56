@@ -3,7 +3,7 @@
 #include "compiler_defs.h"
 #include "crypto/aes.h"
 #include "cmd56.h"
-#include "f00d_emu.h"
+#include "cmd56_sm.h"
 
 typedef struct gc_cmd56_state {
     // cart lock status, unlocked after
@@ -19,7 +19,7 @@ typedef struct gc_cmd56_state {
 
     // There also exists a PROTOTYPE_KEY_ID2 and 3,0x8002 and 0x8003, 
     // however these are blacklisted as of fw 1.04.
-    gcauthmgr_keyid key_id;
+    cmd56_sm_keyid key_id;
 
     // per-gc keys, used to derive the rif key,
     // which is used to decrypt the game klicensee,
@@ -40,7 +40,10 @@ typedef struct gc_cmd56_state {
 // exposed functions:
 void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* keys);
 void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id);
+
 void gc_cmd56_update_keys(gc_cmd56_state* state, const cmd56_keys* keys);
+void gc_cmd56_update_keys_ex(gc_cmd56_state* state, const uint8_t p20_key[0x20], const uint8_t p18_key);
+
 void gc_cmd56_run_in_place(gc_cmd56_state* state, uint8_t* buffer);
 void gc_cmd56_run(gc_cmd56_state* state, const uint8_t* buffer, uint8_t* response);
 

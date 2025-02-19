@@ -27,28 +27,34 @@ typedef enum bool {
     false = 0
 } bool;
 
-#ifndef _MSC_VER
+#if defined(__GNUC__)
 typedef __SIZE_TYPE__ size_t;
-#else
-#ifdef _WIN64
+typedef unsigned size_t uintptr_t;
+typedef signed size_t intptr_t;
+#elif UINTPTR_MAX == UINT64_MAX
 typedef uint64_t size_t;
+typedef uint64_t uintptr_t;
+typedef int64_t intptr_t;
 #else
 typedef uint32_t size_t;
-#endif
+typedef uint32_t uintptr_t;
+typedef int32_t intptr_t;
 #endif
 
-#if !defined(_MSC_VER) && !defined(__GNUC__)
-static inline memcpy(void* dst, void* src, size_t len) {
-    for (int i = 0; i < len; i++) {
-        ((uint8_t*)dst)[i] = ((uint8_t*)src[i]);
+#if !defined(_MSC_VER)
+static inline void* memcpy(void* buf, void* src, size_t n) {
+    for (int i = 0; i < n; i++) {
+        ((uint8_t*)buf)[i] = ((uint8_t*)src[i]);
     }
+    return buf;
 }
-static inline memset(void* dst, char v, size_t len) {
-    for (int i = 0; i < len; i++) {
-        ((uint8_t*)dst)[i] = ((uint8_t)v);
+static inline void* memset(void* buf, int c, size_t n) {
+    for (int i = 0; i < n; i++) {
+        ((uint8_t*)buf)[i] = ((uint8_t)c);
     }
+    return buf;
 }
-static inline memcmp(void* a, void* b, size_t len) {
+static inline int memcmp(void* a, void* b, size_t len) {
     size_t count = len;
     uint8_t* s1 = a;
     uint8_t* s2 = b;
@@ -61,7 +67,7 @@ static inline memcmp(void* a, void* b, size_t len) {
     return 0;
 }
 #else
-void* memset(void* dst, int v, size_t len);
+void* memset(void* str, int c, size_t n);
 void* memcpy(void* dst, const void* src, size_t len);
 int memcmp(void* a, void* b, size_t len);
 #endif

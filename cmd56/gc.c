@@ -1,8 +1,7 @@
 #include "log.h"
 #include "gc.h"
 #include "cmd56.h"
-#include "f00d_emu.h"
-#include "rng.h"
+#include "cmd56_sm.h"
 
 #include "crypto/aes.h"
 #include "crypto/aes_cmac.h"
@@ -112,9 +111,9 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* reques
 	state->cart_random[0x8] = 0x00;
 	state->cart_random[0x9] = 0x00;
 	state->cart_random[0xA] = 0x00;
-	state->cart_random[0xB] = 0x04; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
-									// 0x4 in Smart As,
-									// (possibly: 0x3 on 2GB gc, and 0x4 on 4GB gc? needs more testing.)
+	state->cart_random[0xB] = 0x4; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
+								   // 0x4 in Smart As,
+								   // (possibly: 0x3 on 4GB gc, and 0x4 on 2GB gc? needs more testing.)
 	state->cart_random[0xC] = 0x00;
 
 	memcpy(response->data + 0x8, state->cart_random, sizeof(state->cart_random));
@@ -247,7 +246,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 void handle_verify_shared_random(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 
-	gcauthmgr_keyid got_key_id = make_short(request->data[1], request->data[0]);
+	cmd56_sm_keyid got_key_id = make_short(request->data[1], request->data[0]);
 
 	if (got_key_id == state->key_id) {
 		LOG("(GC) got_key_id == state->key_id\n");
@@ -333,15 +332,23 @@ void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_respons
 // exposed functions :
 
 void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id) {
+	if (state == NULL) return;
 	state->key_id = key_id;
 }
 
+void gc_cmd56_update_keys_ex(gc_cmd56_state* state, const uint8_t p20_key[0x20], const uint8_t p18_key[0x20]) {
+	if (state == NULL) return;
+	if (p20_key != NULL) memcpy(&state->per_cart_keys.packet20_key, p20_key, sizeof(state->per_cart_keys.packet20_key));
+	if (p18_key != NULL) memcpy(&state->per_cart_keys.packet18_key, p18_key, sizeof(state->per_cart_keys.packet18_key));
+}
+
 void gc_cmd56_update_keys(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
-	memcpy(state->per_cart_keys.packet18_key, per_cart_keys->packet18_key, sizeof(state->per_cart_keys.packet18_key));
-	memcpy(state->per_cart_keys.packet20_key, per_cart_keys->packet20_key, sizeof(state->per_cart_keys.packet20_key));
+	if (state == NULL) return;
+	if (per_cart_keys != NULL) gc_cmd56_update_keys_ex(state, per_cart_keys->packet20_key, per_cart_keys->packet18_key);
 }
 
 void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
+	if (state == NULL) return;
 	memset(state, 0x00, sizeof(gc_cmd56_state)); 
 
 	// lock "cart" for reading/writing
@@ -355,12 +362,14 @@ void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {
 }
 
 void gc_cmd56_run_in_place(gc_cmd56_state* state, uint8_t* buffer) {
+	if (state == NULL) return;
 	uint8_t cmd56_request_response[0x200];
 	gc_cmd56_run(state, buffer, cmd56_request_response);
 	memcpy(buffer, cmd56_request_response, sizeof(cmd56_request_response));
 }
 
 void gc_cmd56_run(gc_cmd56_state* state, const uint8_t* buffer, uint8_t* response) {
+	if (state == NULL) return;
 	cmd56_request* request = (cmd56_request*)buffer;
 	if(memcmp(request->magic, CMD56_MAGIC, sizeof(request->magic)) != 0) {
 		return;

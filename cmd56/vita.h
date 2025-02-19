@@ -3,7 +3,7 @@
 #include "compiler_defs.h"
 #include "crypto/aes.h"
 #include "cmd56.h"
-#include "f00d_emu.h"
+#include "cmd56_sm.h"
 
 typedef void (*send_t)(const uint8_t* data, size_t size);
 typedef void (*recv_t)(uint8_t* data, size_t size);
@@ -59,7 +59,7 @@ typedef struct vita_cmd56_state {
 
     // There also exists a PROTOTYPE_KEY_ID2 and 3,0x8002 and 0x8003, 
     // however these are blacklisted as of fw 1.04.
-    gcauthmgr_keyid key_id;
+    cmd56_sm_keyid key_id;
 
     // per-gc keys, used to derive the rif key,
     // which is used to decrypt the game klicensee,
@@ -78,6 +78,8 @@ typedef struct vita_cmd56_state {
 // exposed functions:
 void vita_cmd56_init(vita_cmd56_state* state, send_t send_func, recv_t recv_func);
 void vita_cmd56_init_ex(vita_cmd56_state* state, send_t send_func, recv_t recv_func, bool allow_prototype_keys);
+void* vita_cmd56_get_keys(vita_cmd56_state* state, cmd56_keys* keys);
+void* vita_cmd56_get_keys_ex(vita_cmd56_state* state, uint8_t p20_key[0x20], uint8_t p18_key[0x20]);
 int vita_cmd56_run(vita_cmd56_state* state);
 
 #endif

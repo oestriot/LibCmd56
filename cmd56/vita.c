@@ -1,8 +1,7 @@
 #include "compiler_defs.h"
 #include "vita.h"
 #include "cmd56.h"
-#include "f00d_emu.h"
-#include "rng.h"
+#include "cmd56_sm.h"
 #include "log.h"
 
 #define check_success(code) do { int ret = code; if(ret != GC_AUTH_OK) return ret; } while(0);
@@ -351,19 +350,41 @@ vita_error_code get_packet20_key(vita_cmd56_state* state, cmd56_request* request
 // exposed functions
 
 void vita_cmd56_init(vita_cmd56_state* state, send_t send_func, recv_t recv_func) {
+	if (state == NULL) return;
+
 	memset(state, 0x00, sizeof(vita_cmd56_state));
 	state->send = send_func;
 	state->recv = recv_func;
-
-	state->allow_prototype_keys = false; // emulate 3.60 firmware
+										 // false, replicates the functionality of 1.04+ firmware, prototype carts not allowed.
+	state->allow_prototype_keys = false; // true, it acts more like a prototype <1.04 console, allowing prototype carts.
 }
 
 void vita_cmd56_init_ex(vita_cmd56_state* state, send_t send_func, recv_t recv_func, bool allow_prototype_keys) {
+	if (state == NULL) return;
+
 	vita_cmd56_init(state, send_func, recv_func);
 	state->allow_prototype_keys = true;
 }
 
+void vita_cmd56_get_keyid(vita_cmd56_state* state, cmd56_sm_keyid* key_id) {
+	if (state == NULL) return;
+	if (key_id != NULL) memcpy(key_id, &state->key_id, sizeof(state->key_id));
+}
+
+void* vita_cmd56_get_keys(vita_cmd56_state* state, cmd56_keys* per_cart_keys) {
+	if (state == NULL) return;
+
+	if (per_cart_keys != NULL) memcpy(per_cart_keys, &state->per_cart_keys, sizeof(cmd56_keys));
+}
+void* vita_cmd56_get_keys_ex(vita_cmd56_state* state, uint8_t p20_key[0x20], uint8_t p18_key[0x20]) {
+	if (state == NULL) return;
+
+	if (p20_key != NULL) memcpy(p20_key, state->per_cart_keys.packet20_key, sizeof(state->per_cart_keys.packet20_key));
+	if (p18_key != NULL) memcpy(p18_key, state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
+}
+
 int vita_cmd56_run(vita_cmd56_state* state) {
+	if (state == NULL) return;
 
 	cmd56_request request;
 	cmd56_response response;
