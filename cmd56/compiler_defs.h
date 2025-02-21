@@ -29,8 +29,8 @@ typedef enum bool {
 
 #if defined(__GNUC__)
 typedef __SIZE_TYPE__ size_t;
-typedef unsigned size_t uintptr_t;
-typedef signed size_t intptr_t;
+typedef size_t uintptr_t;
+typedef size_t intptr_t;
 #elif UINTPTR_MAX == UINT64_MAX
 typedef uint64_t size_t;
 typedef uint64_t uintptr_t;
@@ -44,7 +44,7 @@ typedef int32_t intptr_t;
 #if !defined(_MSC_VER)
 static inline void* memcpy(void* buf, void* src, size_t n) {
     for (int i = 0; i < n; i++) {
-        ((uint8_t*)buf)[i] = ((uint8_t*)src[i]);
+        ((uint8_t*)buf)[i] = ((uint8_t*)src)[i];
     }
     return buf;
 }
