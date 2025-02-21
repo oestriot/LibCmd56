@@ -375,4 +375,5 @@ void gc_cmd56_run(gc_cmd56_state* state, const uint8_t* buffer, uint8_t* respons
 		return;
 	}
 	handle_request(state, (cmd56_request*)buffer, (cmd56_response*)response);
+
 }
