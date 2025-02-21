@@ -111,7 +111,7 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* reques
 	state->cart_random[0x8] = 0x00;
 	state->cart_random[0x9] = 0x00;
 	state->cart_random[0xA] = 0x00;
-	state->cart_random[0xB] = 0x4; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
+	state->cart_random[0xB] = 0x04; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
 								   // 0x4 in Smart As,
 								   // (possibly: 0x3 on 4GB gc, and 0x4 on 2GB gc? needs more testing.)
 	state->cart_random[0xC] = 0x00;
