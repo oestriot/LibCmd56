@@ -26,13 +26,13 @@ typedef struct gc_cmd56_state {
     // and finally PFS/EBOOT.BIN
     cmd56_keys per_cart_keys;
 
-    // CART_RANDOM is used to derive the SECONDARY_KEY0 using bbmac 0x305
+    // CART_RANDOM is used to derive the secondary_key using bbmac 0x305
     // and 0x308 (only on RETAIL_KEY_ID) 
     uint8_t cart_random[0x20];
     shared_value shared_random;
 
-    AES_ctx master_key;
-    AES_ctx secondary_key0;
+    AES_ctx primary_key;
+    AES_ctx secondary_key;
 } gc_cmd56_state;
 
 

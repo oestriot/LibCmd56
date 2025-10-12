@@ -56,6 +56,7 @@ int test_own_implementation() {
 
 int main(int argc, char** argv) {
 	int res = 0;
+
 	gc_cmd56_init(&gc_state, &keys); // initalize fake GC
 	vita_cmd56_init(&vita_state, emu_send, emu_recv); // initalize fake VITA
 

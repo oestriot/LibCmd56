@@ -48,14 +48,14 @@ vita_error_code get_cart_random(vita_cmd56_state* state, cmd56_request* request,
 		return GC_AUTH_ERROR_GET_CART_RANDOM_PROTOTYPE_KEY;
 	}
 
-	// generate master key
-	uint8_t master_key[0x10];
-	derive_master_key(master_key, state->cart_random, state->key_id);
+	// generate primary key
+	uint8_t primary_key[0x10];
+	derive_primary_key(primary_key, state->cart_random, state->key_id);
 
-	LOG("(VITA) Master Key: ");
-	LOG_BUFFER(master_key, 0x10);
+	LOG("(VITA) Primary Key: ");
+	LOG_BUFFER(primary_key, 0x10);
 
-	AES_init_ctx(&state->master_key, master_key);
+	AES_init_ctx(&state->primary_key, primary_key);
 	return GC_AUTH_RETURN_STATUS;
 }
 
@@ -81,7 +81,7 @@ vita_error_code verify_shared_random(vita_cmd56_state* state, cmd56_request* req
 	send_packet(state, request, response);
 
 	if (response->error_code == GC_AUTH_OK) {
-		decrypt_cbc_zero_iv(&state->master_key, response->data, 0x20);
+		decrypt_cbc_zero_iv(&state->primary_key, response->data, 0x20);
 
 		LOG("(VITA) verify_shared_random (response) plaintext: ");
 		LOG_BUFFER(response->data, 0x20);
@@ -115,16 +115,16 @@ vita_error_code verify_shared_random(vita_cmd56_state* state, cmd56_request* req
 }
 
 vita_error_code generate_vita_authenticity_proof(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	uint8_t secondary_key0[0x10];
+	uint8_t secondary_key[0x10];
 	cmd56_request_start(request, CMD_VITA_AUTHENTICITY_CHECK, 0x33, 0x3, 0x5);
 
-	rand_bytes(secondary_key0, sizeof(secondary_key0));
-	LOG("(VITA) secondary_key0: ");
-	LOG_BUFFER(secondary_key0, sizeof(secondary_key0));
-	AES_init_ctx(&state->secondary_key0, secondary_key0);
+	rand_bytes(secondary_key, sizeof(secondary_key));
+	LOG("(VITA) secondary_key: ");
+	LOG_BUFFER(secondary_key, sizeof(secondary_key));
+	AES_init_ctx(&state->secondary_key, secondary_key);
 
-	// copy secondary_key0 to packet start
-	memcpy(request->data + 0x00, secondary_key0, sizeof(secondary_key0));
+	// copy secondary_key to packet start
+	memcpy(request->data + 0x00, secondary_key, sizeof(secondary_key));
 	
 	// copy shared_random to challenge
 	uint8_t* challenge = request->data + 0x10;
@@ -143,7 +143,7 @@ vita_error_code generate_vita_authenticity_proof(vita_cmd56_state* state, cmd56_
 	LOG("(VITA) plaintext vita_authenticity_proof: ");
 	LOG_BUFFER(request->data, 0x30);
 
-	encrypt_cbc_zero_iv(&state->master_key, request->data, 0x30);
+	encrypt_cbc_zero_iv(&state->primary_key, request->data, 0x30);
 
 	LOG("(VITA) encrypted vita_authenticity_proof: ");
 	LOG_BUFFER(request->data, 0x30);
@@ -161,9 +161,9 @@ vita_error_code generate_vita_authenticity_proof(vita_cmd56_state* state, cmd56_
 }
 
 
-vita_error_code verify_secondary_key0_challenge(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+vita_error_code verify_secondary_key_challenge(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	
-	cmd56_request_start(request, CMD_SECONDARY_KEY0_CHALLENGE, 0x13, 0x43, 0x7);
+	cmd56_request_start(request, CMD_secondary_key_CHALLENGE, 0x13, 0x43, 0x7);
 	
 
 	// generate challenge bytes 
@@ -174,15 +174,15 @@ vita_error_code verify_secondary_key0_challenge(vita_cmd56_state* state, cmd56_r
 	send_packet(state, request, response);
 
 	// decrypt challenge response ...
-	decrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x40);
-	LOG("(VITA) decrypted secondary_key0 challenge: ");
+	decrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x40);
+	LOG("(VITA) decrypted secondary_key challenge: ");
 	LOG_BUFFER(response->data, 0x40);
 	
 	uint8_t* exp_challenge = request->data + 0x00;
 	uint8_t* got_challenge = response->data + 0x08;
 
 	if (memcmp(got_challenge+0x1, exp_challenge+0x1, 0xF) == 0) { // for some reason, the first byte doesnt have to match.
-		LOG("(VITA) decrypted secondary_key0 challenge matches !\n");
+		LOG("(VITA) decrypted secondary_key challenge matches !\n");
 
 		uint8_t* got_cart_random = response->data + 0x18;
 		if (memcmp(got_cart_random, state->cart_random, sizeof(state->cart_random)) == 0) {
@@ -226,10 +226,10 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 	LOG("(VITA) p18 exp_challenge decrypted: ");
 	LOG_BUFFER(request->data, 0x20);
 
-	encrypt_cbc_zero_iv(&state->secondary_key0, request->data, 0x20);
+	encrypt_cbc_zero_iv(&state->secondary_key, request->data, 0x20);
 
 	// create a cmac of all the p18 data, place it at the end of the request.
-	derive_cmac_packet18_packet20(&state->secondary_key0, 
+	derive_cmac_packet18_packet20(&state->secondary_key, 
 								  request->data, 
 								  make_int24(request->command, 0x00, request->additional_data_size), 
 								  request->data + 0x20, 
@@ -246,12 +246,12 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 		uint8_t* got_cmac = response->data + 0x30;
 
 		// generate p18 cmac
-		derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, exp_cmac, 0x30);
+		derive_cmac_packet18_packet20(&state->secondary_key, response->data, response->response_size, exp_cmac, 0x30);
 		if (memcmp(exp_cmac, got_cmac, sizeof(exp_cmac)) == 0) { // check cmac
 			LOG("(VITA) CMAC Matches!\n");
 
 			// decrypt buffer
-			decrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x30);
+			decrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x30);
 
 			LOG("(VITA) decrypted p18 response: ");
 			LOG_BUFFER(response->data, 0x40);
@@ -305,12 +305,12 @@ vita_error_code get_packet20_key(vita_cmd56_state* state, cmd56_request* request
 		uint8_t* got_cmac = response->data + 0x40;
 		
 		// generate p20 cmac
-		derive_cmac_packet18_packet20(&state->secondary_key0, response->data, response->response_size, exp_cmac, 0x40);
+		derive_cmac_packet18_packet20(&state->secondary_key, response->data, response->response_size, exp_cmac, 0x40);
 		if (memcmp(exp_cmac, got_cmac, sizeof(exp_cmac)) == 0) { // cmac check
 			LOG("(VITA) p20 cmac check pass\n");
 
 			// decrypt response
-			decrypt_cbc_zero_iv(&state->secondary_key0, response->data, 0x40);
+			decrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x40);
 
 			LOG("(VITA) decrypted p20 response data:");
 			LOG_BUFFER(response->data, 0x50);
@@ -403,7 +403,7 @@ int vita_cmd56_run(vita_cmd56_state* state) {
 	check_success(get_status(state, &request, &response)); // check is unlocked
 	if (state->lock_status != GC_UNLOCKED) return GC_AUTH_ERROR_LOCKED; // error if is not unlocked
 	
-	check_success(verify_secondary_key0_challenge(state, &request, &response)); // check if secondary_key0 was obtained by the cart.
+	check_success(verify_secondary_key_challenge(state, &request, &response)); // check if secondary_key was obtained by the cart.
 	check_success(get_packet18_key(state, &request, &response, 0x2)); // get packet18 key, and verify cmac
 	check_success(get_packet18_key(state, &request, &response, 0x3)); // for some reason this gets sent twice,
 	check_success(get_packet20_key(state, &request, &response)); // get packet20 key.

@@ -26,9 +26,10 @@ static const uint8_t GCAUTHMGR_0x8003_KEY[0x10] = { 0xE8, 0xBD, 0xDA, 0xFb, 0xF4
 static const uint8_t GCAUTHMGR_0x1_KEY[0x10]    = { 0x72, 0x50, 0x6A, 0x4B, 0xA8, 0x36, 0xC8, 0x76, 0xC4, 0x48, 0x40, 0x70, 0x1F, 0x0E, 0xA1, 0x02 };
 static const uint8_t GCAUTHMGR_0x1_IV[0x10]     = { 0x8b, 0x14, 0xc8, 0xa1, 0xe9, 0x6f, 0x30, 0xa7, 0xf1, 0x01, 0xa9, 0x6a, 0x30, 0x33, 0xc5, 0x5b };
 
+
 // gcauthmgr_sm
 
-void derive_master_key(uint8_t* masterKey_out, uint8_t* cart_random, int key_id) {
+void derive_primary_key(uint8_t* primary_key_out, uint8_t* cart_random, int key_id) {
 	uint8_t* ukey;
 
 	switch (key_id) {
@@ -45,20 +46,20 @@ void derive_master_key(uint8_t* masterKey_out, uint8_t* cart_random, int key_id)
 			ukey = GCAUTHMGR_0x1_KEY;
 			break;
 		default:
-			LOG("invalid key id passed to derive_master_key 0x%x\n", key_id);
+			LOG("invalid key id passed to derive_primary_key 0x%x\n", key_id);
 			return;
 	}
 
-	AES_CMAC_buffer_key(ukey, cart_random, 0x20, masterKey_out);
+	AES_CMAC_buffer_key(ukey, cart_random, 0x20, primary_key_out);
 	
-	LOG("(F00D) CMAC MasterKey_Out: ");
-	LOG_BUFFER(masterKey_out, 0x10);
+	LOG("(F00D) CMAC primary_key_out: ");
+	LOG_BUFFER(primary_key_out, 0x10);
 
 	if (key_id == 0x1) {
-		AES_CBC_decrypt_buffer_key(BIGMAC_KEY_0x348, masterKey_out, 0x10, GCAUTHMGR_0x1_IV);
+		AES_CBC_decrypt_buffer_key(BIGMAC_KEY_0x348, primary_key_out, 0x10, GCAUTHMGR_0x1_IV);
 
-		LOG("(F00D) CBC_DEC MasterKey_Out: ");
-		LOG_BUFFER(masterKey_out, 0x10);
+		LOG("(F00D) CBC_DEC primary_key_out: ");
+		LOG_BUFFER(primary_key_out, 0x10);
 	}
 
 }
@@ -80,10 +81,10 @@ void derive_cmac_packet18_packet20(AES_ctx* ctx, uint8_t* data, uint32_t header,
 // random number generator
 static uint8_t rand_state[0x10] = "TRANS RIGHTS!!!!";
 
-void rand_seed(void* seed, size_t size) {
+void rand_entropy(void* seed, size_t size) {
 	size_t seed_size = (size < sizeof(rand_state)) ? size : sizeof(rand_state);
 
-	for (int i = 0; i < seed_size; i++)
+	for (int i = 0; i < seed_size; i++) 
 		rand_state[i] ^= ((uint8_t*)seed)[i];
 }
 
@@ -94,8 +95,8 @@ void rand_bytes(uint8_t* buf, size_t size) {
 #else
 	
 	// seed the rng, or well as best as we can without any platform dependant code...
-	rand_seed(buf, size);								// seed on buffer content
-	rand_seed(&buf, sizeof(uintptr_t));					// seed on address location (ala; aslr)
+	rand_entropy(buf, size);								// seed on buffer content
+	rand_entropy(&buf, sizeof(uintptr_t));					// seed on address location (ala; aslr)
 	
 	for (int i = 0; i < size; i += sizeof(rand_state)) {
 		// determine copy size 
