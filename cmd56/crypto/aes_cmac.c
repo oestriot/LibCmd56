@@ -17,20 +17,20 @@ static void left_shift(uint8_t *dest, uint8_t *src)
 }
 
 //put 0x80, 0x00, 0x00 after the first len bytes of block
-static void add_padding(uint8_t *block, int len)
+static inline void add_padding(uint8_t *block, int len)
 {
     for(int i = len; i < AES_BLOCKSIZE; i++)
         block[i] = 0;
     block[len] = 0x80;
 }
 
-static void block_xor_triple(uint8_t *a, uint8_t *b, uint8_t *c)
+static inline void block_xor_triple(uint8_t *a, uint8_t *b, uint8_t *c)
 {
     for(int i = 0; i < AES_BLOCKSIZE; i++)
         c[i] = a[i] ^ b[i];
 }
 
-static void gen_subkey(AES_ctx *aes_ctx, uint8_t *subkey_1, uint8_t *subkey_2)
+static inline void gen_subkey(AES_ctx *aes_ctx, uint8_t *subkey_1, uint8_t *subkey_2)
 {
     uint8_t L[16] = {0};
     AES_ECB_encrypt(aes_ctx, L);

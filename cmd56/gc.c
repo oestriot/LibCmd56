@@ -21,22 +21,22 @@ void handle_cmd_status(gc_cmd56_state* state, cmd56_request* request, cmd56_resp
 	response->data[0x1] = (state->lock_status & 0xFF00) >> 8; 
 }
 
-void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+void handle_generate_secondary_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 	// decrypt 0x30 bytes of the request ...
 	decrypt_cbc_zero_iv(&state->primary_key, request->data, 0x30);
 
-	uint8_t* vita_authenticity_proof = request->data;
+	uint8_t* secondary_key_buf = request->data;
 
 	// log everything
-	LOG("(GC) decrypted vita_authenticity_proof buffer: ");
-	LOG_BUFFER(vita_authenticity_proof, 0x30);
+	LOG("(GC) decrypted secondary_key buffer: ");
+	LOG_BUFFER(secondary_key_buf, 0x30);
 
 	LOG("(GC) secondary_key: ");
-	uint8_t* got_secondary_key = vita_authenticity_proof + 0x00;
+	uint8_t* got_secondary_key = secondary_key_buf + 0x00;
 	LOG_BUFFER(got_secondary_key, 0x10);
 	
-	uint8_t* got_challenge = vita_authenticity_proof + 0x10;
+	uint8_t* got_challenge = secondary_key_buf + 0x10;
 	LOG("(GC) got_challenge: ");
 	LOG_BUFFER(got_challenge, 0x20);
 
@@ -60,15 +60,15 @@ void handle_vita_authenticity_check(gc_cmd56_state* state, cmd56_request* reques
 		LOG("(GC) expected: ");
 		LOG_BUFFER(exp_challenge, 0x20);
 
-		LOG("(GC) got: vita_authenticity_proof+0x10: ");
-		LOG_BUFFER(vita_authenticity_proof + 0x10, 0x20);
+		LOG("(GC) got: secondary_key_buf+0x10: ");
+		LOG_BUFFER(secondary_key_buf + 0x10, 0x20);
 
 		state->lock_status = GC_LOCKED;
 		cmd56_response_error(response, 0xF1);
 	}
 }
 
-void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+void handle_generate_random_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 
 	response->data[0x0] = 0xE0;
@@ -130,7 +130,7 @@ void handle_generate_random_keyseed(gc_cmd56_state* state, cmd56_request* reques
 	AES_init_ctx(&state->primary_key, primary_key);
 }
 
-void handle_secondary_key_challenge(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+void handle_verify_secondary_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 
 	// the other bytes in here are never used, but it is seemingly random on a offical cart.
@@ -242,7 +242,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 	derive_cmac_packet18_packet20(&state->secondary_key, response->data, response->response_size, response->data + 0x40, 0x40);
 }
 
-void handle_verify_shared_random(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+void handle_verify_random_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 
 	cmd56_sm_keyid got_key_id = make_short(request->data[1], request->data[0]);
@@ -297,20 +297,21 @@ void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_respons
 		case CMD_GET_STATUS: // packet3, packet4
 			handle_cmd_status(state, request, request_response);
 			break;
-		case CMD_GENERATE_RANDOM_KEYSEED: // packet5, packet6
-			handle_generate_random_keyseed(state, request, request_response);
+		case CMD_GENERATE_RANDOM_KEY: // packet5, packet6
+			handle_generate_random_key(state, request, request_response);
 			break;
-		case CMD_VERIFY_SHARED_RANDOM: // packet7, packet8
-			handle_verify_shared_random(state, request, request_response);
+		case CMD_VERIFY_RANDOM_KEY: // packet7, packet8
+			handle_verify_random_key(state, request, request_response);
 			break;
-		case CMD_VITA_AUTHENTICITY_CHECK: // packet9, packet10
-			handle_vita_authenticity_check(state, request, request_response);
+		case CMD_GENERATE_SECONDARY_KEY: // packet9, packet10
+			handle_generate_secondary_key(state, request, request_response);
 			break;
 			
 		// packet11, packet12 -> CMD_GET_STATUS again
-		
-		case CMD_secondary_key_CHALLENGE: // packet13, packet14
-			handle_secondary_key_challenge(state, request, request_response);
+		// checking if the cart is unlocked for reading / writing.
+
+		case CMD_VERIFY_SECONDARY_KEY: // packet13, packet14
+			handle_verify_secondary_key(state, request, request_response);
 			break;
 
 		case CMD_P18_KEY_AND_CMAC_SIGNATURE: // packet15, packet16

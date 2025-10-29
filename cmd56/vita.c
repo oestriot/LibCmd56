@@ -32,8 +32,8 @@ vita_error_code get_status(vita_cmd56_state* state, cmd56_request* request, cmd5
 	return GC_AUTH_RETURN_STATUS;
 }
 
-vita_error_code get_cart_random(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	cmd56_request_start(request, CMD_GENERATE_RANDOM_KEYSEED, 0x3, 0x2B, 0x2);
+vita_error_code get_random_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_request_start(request, CMD_GENERATE_RANDOM_KEY, 0x3, 0x2B, 0x2);
 	send_packet(state, request, response);
 	
 	state->key_id = make_short(response->data[0x3], response->data[0x2]);
@@ -59,9 +59,9 @@ vita_error_code get_cart_random(vita_cmd56_state* state, cmd56_request* request,
 	return GC_AUTH_RETURN_STATUS;
 }
 
-vita_error_code verify_shared_random(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+vita_error_code generate_random_key_verification(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	
-	cmd56_request_start(request, CMD_VERIFY_SHARED_RANDOM, 0x15, 0x23, 0x3);
+	cmd56_request_start(request, CMD_VERIFY_RANDOM_KEY, 0x15, 0x23, 0x3);
 
 	// copy key id into request
 	LOG("(VITA) cart key id: %x\n", state->key_id);
@@ -114,9 +114,9 @@ vita_error_code verify_shared_random(vita_cmd56_state* state, cmd56_request* req
 	return GC_AUTH_ERROR_REPORTED;
 }
 
-vita_error_code generate_vita_authenticity_proof(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+vita_error_code generate_secondary_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	uint8_t secondary_key[0x10];
-	cmd56_request_start(request, CMD_VITA_AUTHENTICITY_CHECK, 0x33, 0x3, 0x5);
+	cmd56_request_start(request, CMD_GENERATE_SECONDARY_KEY, 0x33, 0x3, 0x5);
 
 	rand_bytes(secondary_key, sizeof(secondary_key));
 	LOG("(VITA) secondary_key: ");
@@ -161,10 +161,9 @@ vita_error_code generate_vita_authenticity_proof(vita_cmd56_state* state, cmd56_
 }
 
 
-vita_error_code verify_secondary_key_challenge(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+vita_error_code generate_secondary_key_verification(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	
-	cmd56_request_start(request, CMD_secondary_key_CHALLENGE, 0x13, 0x43, 0x7);
-	
+	cmd56_request_start(request, CMD_VERIFY_SECONDARY_KEY, 0x13, 0x43, 0x7);
 
 	// generate challenge bytes 
 	rand_bytes_or_w_80(request->data + 0x00, 0x10);
@@ -396,14 +395,14 @@ int vita_cmd56_run(vita_cmd56_state* state) {
 	check_success(get_status(state, &request, &response)); // check is locked
 	if (state->lock_status != GC_LOCKED) return GC_AUTH_ERROR_UNLOCKED; // error if is not locked
 
-	check_success(get_cart_random(state, &request, &response)); // get cart random, and keyid 
-	check_success(verify_shared_random(state, &request, &response)); // send vita portion of shared random and receive gc portion.
-	check_success(generate_vita_authenticity_proof(state, &request, &response)); // generate vita authenticity proof
+	check_success(get_random_key(state, &request, &response)); // get cart random, and keyid 
+	check_success(generate_random_key_verification(state, &request, &response)); // send vita portion of shared random and receive gc portion.
+	check_success(generate_secondary_key(state, &request, &response)); // generate vita authenticity proof
 
 	check_success(get_status(state, &request, &response)); // check is unlocked
 	if (state->lock_status != GC_UNLOCKED) return GC_AUTH_ERROR_LOCKED; // error if is not unlocked
 	
-	check_success(verify_secondary_key_challenge(state, &request, &response)); // check if secondary_key was obtained by the cart.
+	check_success(generate_secondary_key_verification(state, &request, &response)); // check if secondary_key was obtained by the cart.
 	check_success(get_packet18_key(state, &request, &response, 0x2)); // get packet18 key, and verify cmac
 	check_success(get_packet18_key(state, &request, &response, 0x3)); // for some reason this gets sent twice,
 	check_success(get_packet20_key(state, &request, &response)); // get packet20 key.
