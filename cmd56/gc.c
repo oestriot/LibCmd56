@@ -24,7 +24,7 @@ void handle_cmd_status(gc_cmd56_state* state, cmd56_request* request, cmd56_resp
 void handle_generate_secondary_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 	// decrypt 0x30 bytes of the request ...
-	decrypt_cbc_zero_iv(&state->primary_key, request->data, 0x30);
+	decrypt_cbc_zero_iv(&state->session_key, request->data, 0x30);
 
 	uint8_t* secondary_key_buf = request->data;
 
@@ -120,14 +120,14 @@ void handle_generate_random_key(gc_cmd56_state* state, cmd56_request* request, c
 	LOG("(GC) Cart Random: ");
 	LOG_BUFFER(state->cart_random, sizeof(state->cart_random));
 
-	// generate primary key
-	uint8_t primary_key[0x10];
-	derive_primary_key(primary_key, state->cart_random, state->key_id);
+	// generate session key
+	uint8_t session_key[0x10];
+	derive_session_key(session_key, state->cart_random, state->key_id);
 
-	LOG("(GC) Primary Key: ");
-	LOG_BUFFER(primary_key, sizeof(primary_key));
+	LOG("(GC) Session key: ");
+	LOG_BUFFER(session_key, sizeof(session_key));
 
-	AES_init_ctx(&state->primary_key, primary_key);
+	AES_init_ctx(&state->session_key, session_key);
 }
 
 void handle_verify_secondary_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
@@ -242,7 +242,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 	derive_cmac_packet18_packet20(&state->secondary_key, response->data, response->response_size, response->data + 0x40, 0x40);
 }
 
-void handle_verify_random_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 
 	cmd56_sm_keyid got_key_id = make_short(request->data[1], request->data[0]);
@@ -255,6 +255,7 @@ void handle_verify_random_key(gc_cmd56_state* state, cmd56_request* request, cmd
 		LOG_BUFFER(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 
 		// gamecart decides the lower portion of vita random ...
+		rand_entropy(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 		rand_bytes(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
 		state->shared_random.cart_part[0x00] |= 0x80;
 		state->shared_random.vita_part[0x00] |= 0x80;
@@ -270,7 +271,7 @@ void handle_verify_random_key(gc_cmd56_state* state, cmd56_request* request, cmd
 		LOG("(GC) handle_shared_random plaintext: ");
 		LOG_BUFFER(response->data, sizeof(shared_value));
 
-		encrypt_cbc_zero_iv(&state->primary_key, response->data, 0x20);
+		encrypt_cbc_zero_iv(&state->session_key, response->data, 0x20);
 
 		LOG("(GC) handle_shared_random ciphertext: ");
 		LOG_BUFFER(response->data, 0x20);
@@ -300,8 +301,8 @@ void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_respons
 		case CMD_GENERATE_RANDOM_KEY: // packet5, packet6
 			handle_generate_random_key(state, request, request_response);
 			break;
-		case CMD_VERIFY_RANDOM_KEY: // packet7, packet8
-			handle_verify_random_key(state, request, request_response);
+		case CMD_EXCHANGE_SHARED_RANDOM: // packet7, packet8
+			handle_exchange_shared_random(state, request, request_response);
 			break;
 		case CMD_GENERATE_SECONDARY_KEY: // packet9, packet10
 			handle_generate_secondary_key(state, request, request_response);

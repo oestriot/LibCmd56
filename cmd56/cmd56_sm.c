@@ -12,7 +12,7 @@
 *	GCAUTHMGR_0x8003_SEED = 368b2eb5437a821862a6c95596d8c135
 *	GCAUTHMGR_0x1_SEED    = 7f1fd065dd2f40b3e26579a6390b616d
 *
-*	derived from aes-256-ecb decrypt GCAUTHMGR_KEYID_SEED value with BIGMAC_KEY_0x345
+*	derived by aes-256-ecb decrypt GCAUTHMGR_KEYID_SEED value with BIGMAC_KEY_0x345
 *   this is not incuded here because its result is always the same, 
 *	calculating it every time would be slower-
 *	and would also require an additional implementation of aes-256, which would make filesize larger.
@@ -29,37 +29,37 @@ static const uint8_t GCAUTHMGR_0x1_IV[0x10]     = { 0x8b, 0x14, 0xc8, 0xa1, 0xe9
 
 // gcauthmgr_sm
 
-void derive_primary_key(uint8_t* primary_key_out, uint8_t* cart_random, int key_id) {
-	uint8_t* ukey;
+void derive_session_key(uint8_t* session_key_out, uint8_t* cart_random, int key_id) {
+	uint8_t* keyseed;
 
 	switch (key_id) {
 		case PROTOTYPE_KEY_ID1:
-			ukey = GCAUTHMGR_0x8001_KEY;
+			keyseed = GCAUTHMGR_0x8001_KEY;
 			break;
 		case PROTOTYPE_KEY_ID2:
-			ukey = GCAUTHMGR_0x8002_KEY;
+			keyseed = GCAUTHMGR_0x8002_KEY;
 			break;
 		case PROTOTYPE_KEY_ID3:
-			ukey = GCAUTHMGR_0x8003_KEY;
+			keyseed = GCAUTHMGR_0x8003_KEY;
 			break;
 		case RETAIL_KEY_ID:
-			ukey = GCAUTHMGR_0x1_KEY;
+			keyseed = GCAUTHMGR_0x1_KEY;
 			break;
 		default:
-			LOG("invalid key id passed to derive_primary_key 0x%x\n", key_id);
+			LOG("invalid key id passed to derive_session_key 0x%x\n", key_id);
 			return;
 	}
 
-	AES_CMAC_buffer_key(ukey, cart_random, 0x20, primary_key_out);
+	AES_CMAC_buffer_key(keyseed, cart_random, 0x20, session_key_out);
 	
-	LOG("(F00D) CMAC primary_key_out: ");
-	LOG_BUFFER(primary_key_out, 0x10);
+	LOG("(F00D) CMAC session_key_out: ");
+	LOG_BUFFER(session_key_out, 0x10);
 
 	if (key_id == 0x1) {
-		AES_CBC_decrypt_buffer_key(BIGMAC_KEY_0x348, primary_key_out, 0x10, GCAUTHMGR_0x1_IV);
+		AES_CBC_decrypt_buffer_key(BIGMAC_KEY_0x348, session_key_out, 0x10, GCAUTHMGR_0x1_IV);
 
-		LOG("(F00D) CBC_DEC primary_key_out: ");
-		LOG_BUFFER(primary_key_out, 0x10);
+		LOG("(F00D) CBC_DEC session_key_out: ");
+		LOG_BUFFER(session_key_out, 0x10);
 	}
 
 }

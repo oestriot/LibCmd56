@@ -16,7 +16,7 @@ enum CMD56_SM_KEY_IDS {
 #define decrypt_cbc_zero_iv(ctx, data, len) AES_CBC_decrypt_buffer(ctx, data, len, NULL);
 #define encrypt_cbc_zero_iv(ctx, data, len) AES_CBC_encrypt_buffer(ctx, data, len, NULL);
 
-void derive_primary_key(uint8_t* primary_key_out, uint8_t* cart_random, int key_id);
+void derive_session_key(uint8_t* session_key_out, uint8_t* cart_random, int key_id);
 void derive_cmac_packet18_packet20(AES_ctx* ctx, uint8_t* data, uint32_t header, uint8_t* output, size_t size);
 
 // random number generators

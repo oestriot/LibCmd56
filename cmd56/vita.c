@@ -48,20 +48,21 @@ vita_error_code get_random_key(vita_cmd56_state* state, cmd56_request* request, 
 		return GC_AUTH_ERROR_GET_CART_RANDOM_PROTOTYPE_KEY;
 	}
 
-	// generate primary key
-	uint8_t primary_key[0x10];
-	derive_primary_key(primary_key, state->cart_random, state->key_id);
+	// generate session key
+	uint8_t session_key[0x10];
+	derive_session_key(session_key, state->cart_random, state->key_id);
+	rand_entropy(state->cart_random, sizeof(state->cart_random));
 
-	LOG("(VITA) Primary Key: ");
-	LOG_BUFFER(primary_key, 0x10);
+	LOG("(VITA) Session key: ");
+	LOG_BUFFER(session_key, 0x10);
 
-	AES_init_ctx(&state->primary_key, primary_key);
+	AES_init_ctx(&state->session_key, session_key);
 	return GC_AUTH_RETURN_STATUS;
 }
 
-vita_error_code generate_random_key_verification(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	
-	cmd56_request_start(request, CMD_VERIFY_RANDOM_KEY, 0x15, 0x23, 0x3);
+	cmd56_request_start(request, CMD_EXCHANGE_SHARED_RANDOM, 0x15, 0x23, 0x3);
 
 	// copy key id into request
 	LOG("(VITA) cart key id: %x\n", state->key_id);
@@ -81,7 +82,7 @@ vita_error_code generate_random_key_verification(vita_cmd56_state* state, cmd56_
 	send_packet(state, request, response);
 
 	if (response->error_code == GC_AUTH_OK) {
-		decrypt_cbc_zero_iv(&state->primary_key, response->data, 0x20);
+		decrypt_cbc_zero_iv(&state->session_key, response->data, 0x20);
 
 		LOG("(VITA) verify_shared_random (response) plaintext: ");
 		LOG_BUFFER(response->data, 0x20);
@@ -92,7 +93,7 @@ vita_error_code generate_random_key_verification(vita_cmd56_state* state, cmd56_
 		if (memcmp(got_vita_part + 0x1, state->shared_random.vita_part + 0x1, sizeof(state->shared_random.vita_part)-0x1) == 0) {
 			LOG("(VITA) cart and vita have the same shared_random.vita_part ...\n");
 			
-			// copy cart part into shared_random
+			// copy cart part into global state shared_random
 			memcpy(state->shared_random.cart_part, got_cart_part, sizeof(state->shared_random.cart_part));
 			LOG("(VITA) shared random, cart part: ");
 			LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
@@ -114,7 +115,7 @@ vita_error_code generate_random_key_verification(vita_cmd56_state* state, cmd56_
 	return GC_AUTH_ERROR_REPORTED;
 }
 
-vita_error_code generate_secondary_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+vita_error_code generate_secondary_key_and_check_challenge(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	uint8_t secondary_key[0x10];
 	cmd56_request_start(request, CMD_GENERATE_SECONDARY_KEY, 0x33, 0x3, 0x5);
 
@@ -143,7 +144,7 @@ vita_error_code generate_secondary_key(vita_cmd56_state* state, cmd56_request* r
 	LOG("(VITA) plaintext vita_authenticity_proof: ");
 	LOG_BUFFER(request->data, 0x30);
 
-	encrypt_cbc_zero_iv(&state->primary_key, request->data, 0x30);
+	encrypt_cbc_zero_iv(&state->session_key, request->data, 0x30);
 
 	LOG("(VITA) encrypted vita_authenticity_proof: ");
 	LOG_BUFFER(request->data, 0x30);
@@ -396,8 +397,8 @@ int vita_cmd56_run(vita_cmd56_state* state) {
 	if (state->lock_status != GC_LOCKED) return GC_AUTH_ERROR_UNLOCKED; // error if is not locked
 
 	check_success(get_random_key(state, &request, &response)); // get cart random, and keyid 
-	check_success(generate_random_key_verification(state, &request, &response)); // send vita portion of shared random and receive gc portion.
-	check_success(generate_secondary_key(state, &request, &response)); // generate vita authenticity proof
+	check_success(generate_shared_random(state, &request, &response)); // send vita portion of shared random and receive gc portion.
+	check_success(generate_secondary_key_and_check_challenge(state, &request, &response)); // generate vita authenticity proof
 
 	check_success(get_status(state, &request, &response)); // check is unlocked
 	if (state->lock_status != GC_UNLOCKED) return GC_AUTH_ERROR_LOCKED; // error if is not unlocked

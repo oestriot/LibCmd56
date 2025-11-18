@@ -31,7 +31,7 @@ typedef struct gc_cmd56_state {
     uint8_t cart_random[0x20];
     shared_value shared_random;
 
-    AES_ctx primary_key;
+    AES_ctx session_key;
     AES_ctx secondary_key;
 } gc_cmd56_state;
 
