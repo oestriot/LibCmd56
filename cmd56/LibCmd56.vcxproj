@@ -31,7 +31,9 @@
     <ClInclude Include="compiler_defs.h" />
     <ClInclude Include="crypto\aes.h" />
     <ClInclude Include="crypto\aes_cmac.h" />
-    <ClInclude Include="cmd56_sm.h" />
+    <ClInclude Include="cmd56_sm.h">
+      <DeploymentContent>false</DeploymentContent>
+    </ClInclude>
     <ClInclude Include="gc.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="vita.h" />

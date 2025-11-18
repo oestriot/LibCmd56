@@ -1,3 +1,8 @@
+/*
+*	LibCmd56 from the Estroit team!
+*	the only functional implementation of vita gamecart authentication!
+*/
+
 #ifndef GC_H
 #define GC_H 1
 #include "compiler_defs.h"

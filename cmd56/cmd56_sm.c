@@ -1,3 +1,8 @@
+/*
+*	LibCmd56 from the Estroit team!
+*	the only functional implementation of vita gamecart authentication!
+*/
+
 #include "log.h"
 #include "crypto/aes.h"
 #include "crypto/aes_cmac.h"

@@ -1,3 +1,8 @@
+/*
+*	LibCmd56 from the Estroit team!
+*	the only functional implementation of vita gamecart authentication!
+*/
+
 #ifdef _DEBUG
 #include <stdio.h>
 #include <stdint.h>
