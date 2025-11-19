@@ -37,8 +37,8 @@ vita_error_code get_status(vita_cmd56_state* state, cmd56_request* request, cmd5
 	return GC_AUTH_RETURN_STATUS;
 }
 
-vita_error_code get_random_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	cmd56_request_start(request, CMD_GENERATE_RANDOM_KEY, 0x3, 0x2B, 0x2);
+vita_error_code get_session_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_request_start(request, CMD_GENERATE_SESSION_KEY, 0x3, 0x2B, 0x2);
 	send_packet(state, request, response);
 	
 	state->key_id = make_short(response->data[0x3], response->data[0x2]);
@@ -56,7 +56,6 @@ vita_error_code get_random_key(vita_cmd56_state* state, cmd56_request* request, 
 	// generate session key
 	uint8_t session_key[0x10];
 	derive_session_key(session_key, state->cart_random, state->key_id);
-	rand_entropy(state->cart_random, sizeof(state->cart_random));
 
 	LOG("(VITA) Session key: ");
 	LOG_BUFFER(session_key, 0x10);
@@ -66,7 +65,6 @@ vita_error_code get_random_key(vita_cmd56_state* state, cmd56_request* request, 
 }
 
 vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	
 	cmd56_request_start(request, CMD_EXCHANGE_SHARED_RANDOM, 0x15, 0x23, 0x3);
 
 	// copy key id into request
@@ -120,9 +118,9 @@ vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* r
 	return GC_AUTH_ERROR_REPORTED;
 }
 
-vita_error_code generate_secondary_key_and_check_challenge(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+vita_error_code generate_secondary_key_and_verify_session(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	uint8_t secondary_key[0x10];
-	cmd56_request_start(request, CMD_GENERATE_SECONDARY_KEY, 0x33, 0x3, 0x5);
+	cmd56_request_start(request, CMD_EXCHANGE_SECONDARY_KEY_AND_VERIFY_SESSION, 0x33, 0x3, 0x5);
 
 	rand_bytes(secondary_key, sizeof(secondary_key));
 	LOG("(VITA) secondary_key: ");
@@ -139,9 +137,9 @@ vita_error_code generate_secondary_key_and_check_challenge(vita_cmd56_state* sta
 	LOG("(VITA) challenge bytes (before or'ing): ");
 	LOG_BUFFER(challenge, sizeof(state->shared_random));
 
-	// logical OR the challenge bytes with 0x80, for.. some reason?
-	challenge[0x00] |= 0x80;
-	challenge[0x10] |= 0x80;
+	// logical OR the challenge bytes with 0x80,
+	// i think this is to prevent just copying the previous ciphertext
+	or_w_80(challenge, 0x20);
 
 	LOG("(VITA) challenge bytes (after or'ing): ");
 	LOG_BUFFER(challenge, sizeof(state->shared_random));
@@ -157,18 +155,17 @@ vita_error_code generate_secondary_key_and_check_challenge(vita_cmd56_state* sta
 	send_packet(state, request, response);
 
 	if (response->error_code != GC_AUTH_OK) {
-		LOG("(VITA) I can't beleive it, that gamecart said i wasnt a real vita!! (error code = 0x%X)\n", response->error_code);
+		LOG("(VITA) session_key challenge failed: (error code = 0x%X)\n", response->error_code);
 		return GC_AUTH_ERROR_REPORTED;
 	}
 	else {
-		LOG("(VITA) Look mom! the cart thinks im a vita!\n");
+		LOG("(VITA) session_key challenge passed!!\n");
 		return GC_AUTH_OK;
 	}
 }
 
 
-vita_error_code generate_secondary_key_verification(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	
+vita_error_code verify_secondary_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_request_start(request, CMD_VERIFY_SECONDARY_KEY, 0x13, 0x43, 0x7);
 
 	// generate challenge bytes 
@@ -216,14 +213,15 @@ vita_error_code generate_secondary_key_verification(vita_cmd56_state* state, cmd
 }
 
 vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response, uint8_t type) {
+	cmd56_request_start(request, CMD_GET_P18_KEY_AND_CMAC_SIGNATURE, 0x33, 0x43, 0x11);
 	uint8_t exp_challenge[0x10];
-	cmd56_request_start(request, CMD_P18_KEY_AND_CMAC_SIGNATURE, 0x33, 0x43, 0x11);
-	
+
 	rand_bytes_or_w_80(exp_challenge, sizeof(exp_challenge));
 	memcpy(request->data + 0x00, exp_challenge, sizeof(exp_challenge));
 	memset(request->data + 0x10, 0x00, 0x10);
 	
-	// because packet18 is called twice, idfk
+	// i dont know what this is for, its just all that changes between the two calls to it, 
+	// honestly i dont know why this is command is issued twice;
 	request->data[0x1f] = type;
 	LOG("(VITA) get_p18_key: type 0x%x\n", type);
 
@@ -234,16 +232,16 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 	encrypt_cbc_zero_iv(&state->secondary_key, request->data, 0x20);
 
 	// create a cmac of all the p18 data, place it at the end of the request.
-	derive_cmac_packet18_packet20(&state->secondary_key, 
-								  request->data, 
-								  make_int24(request->command, 0x00, request->additional_data_size), 
-								  request->data + 0x20, 
-								  0x20);
+	do_cmd56_cmac_hash(&state->secondary_key, 
+						request->data, 
+						make_int24(request->command, 0x00, request->additional_data_size), 
+						request->data + 0x20, 
+						0x20);
 
 	// log after encrypt
 	LOG("(VITA) plaintext p18 request data: ");
 	LOG_BUFFER(request->data, 0x30);
-	
+
 	send_packet(state, request, response);
 
 	if (response->error_code == GC_AUTH_OK) { // check status from gc
@@ -251,7 +249,11 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 		uint8_t* got_cmac = response->data + 0x30;
 
 		// generate p18 cmac
-		derive_cmac_packet18_packet20(&state->secondary_key, response->data, response->response_size, exp_cmac, 0x30);
+		do_cmd56_cmac_hash(&state->secondary_key, 
+						   response->data, 
+			               response->response_size, 
+			               exp_cmac, 
+			               0x30);
 		if (memcmp(exp_cmac, got_cmac, sizeof(exp_cmac)) == 0) { // check cmac
 			LOG("(VITA) CMAC Matches!\n");
 
@@ -261,7 +263,7 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 			LOG("(VITA) decrypted p18 response: ");
 			LOG_BUFFER(response->data, 0x40);
 
-			// for some reason, the first byte doesnt have to match.
+			// the first byte doesnt have to match.
 			uint8_t* got_challenge = response->data + 0x00;
 			if (memcmp(exp_challenge+0x1, got_challenge+0x1, sizeof(exp_challenge) - 0x1) == 0) { 
 				LOG("(VITA) p18 challenge success!\n");
@@ -296,11 +298,11 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 }
 
 vita_error_code get_packet20_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	cmd56_request_start(request, CMD_P20_KEY_AND_CMAC_SIGNATURE, 0x13, 0x53, 0x19);
+	cmd56_request_start(request, CMD_GET_P20_KEY_AND_CMAC_SIGNATURE, 0x13, 0x53, 0x19);
 	uint8_t* exp_challange = request->data + 0x00;
 	rand_bytes_or_w_80(exp_challange, 0x10);
 
-	LOG("(VITA) p18 request: ");
+	LOG("(VITA) p20 request: ");
 	LOG_BUFFER(request->data + 0x00, 0x10);
 
 	send_packet(state, request, response);
@@ -310,7 +312,7 @@ vita_error_code get_packet20_key(vita_cmd56_state* state, cmd56_request* request
 		uint8_t* got_cmac = response->data + 0x40;
 		
 		// generate p20 cmac
-		derive_cmac_packet18_packet20(&state->secondary_key, response->data, response->response_size, exp_cmac, 0x40);
+		do_cmd56_cmac_hash(&state->secondary_key, response->data, response->response_size, exp_cmac, 0x40);
 		if (memcmp(exp_cmac, got_cmac, sizeof(exp_cmac)) == 0) { // cmac check
 			LOG("(VITA) p20 cmac check pass\n");
 
@@ -401,14 +403,14 @@ int vita_cmd56_run(vita_cmd56_state* state) {
 	check_success(get_status(state, &request, &response)); // check is locked
 	if (state->lock_status != GC_LOCKED) return GC_AUTH_ERROR_UNLOCKED; // error if is not locked
 
-	check_success(get_random_key(state, &request, &response)); // get cart random, and keyid 
+	check_success(get_session_key(state, &request, &response)); // get cart random, and keyid 
 	check_success(generate_shared_random(state, &request, &response)); // send vita portion of shared random and receive gc portion.
-	check_success(generate_secondary_key_and_check_challenge(state, &request, &response)); // generate vita authenticity proof
+	check_success(generate_secondary_key_and_verify_session(state, &request, &response)); // generate vita authenticity proof
 
 	check_success(get_status(state, &request, &response)); // check is unlocked
 	if (state->lock_status != GC_UNLOCKED) return GC_AUTH_ERROR_LOCKED; // error if is not unlocked
 	
-	check_success(generate_secondary_key_verification(state, &request, &response)); // check if secondary_key was obtained by the cart.
+	check_success(verify_secondary_key(state, &request, &response)); // check if secondary_key was obtained by the cart.
 	check_success(get_packet18_key(state, &request, &response, 0x2)); // get packet18 key, and verify cmac
 	check_success(get_packet18_key(state, &request, &response, 0x3)); // for some reason this gets sent twice,
 	check_success(get_packet20_key(state, &request, &response)); // get packet20 key.

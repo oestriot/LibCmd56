@@ -6,10 +6,6 @@
 #ifndef COMPILER_DEFS_H
 #define COMPILER_DEFS_H 1
 
-#include <stdint.h>
-
-// i do not want to rely on the standard library for this.
-
 #ifdef __GNUC__
 #define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
 #endif
@@ -54,12 +50,12 @@ typedef size_t intptr_t;
 
 #ifdef _WIN64
 typedef unsigned __int64 size_t;
-typedef __int64          ptrdiff_t;
 typedef __int64          intptr_t;
+typedef unsigned __int64 uintptr_t;
 #else
 typedef unsigned int     size_t;
-typedef int              ptrdiff_t;
 typedef int              intptr_t;
+typedef unsigned int     uintptr_t;
 #endif
 
 #endif
@@ -69,7 +65,7 @@ typedef int              intptr_t;
 #endif
 
 
-static inline void* __impl_memcpy(void* buf, void* src, size_t n) {
+static inline void* __impl_memcpy(void* buf, void const* src, size_t n) {
     for (int i = 0; i < n; i++) {
         ((uint8_t*)buf)[i] = ((uint8_t*)src)[i];
     }
@@ -81,7 +77,7 @@ static inline void* __impl_memset(void* buf, int c, size_t n) {
     }
     return buf;
 }
-static inline int __impl_memcmp(void* a, void* b, size_t len) {
+static inline int __impl_memcmp(void const* a, void const* b, size_t len) {
     size_t count = len;
     uint8_t* s1 = a;
     uint8_t* s2 = b;

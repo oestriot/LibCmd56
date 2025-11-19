@@ -26,11 +26,11 @@ void handle_cmd_status(gc_cmd56_state* state, cmd56_request* request, cmd56_resp
 	response->data[0x1] = (state->lock_status & 0xFF00) >> 8; 
 }
 
-void handle_generate_secondary_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+void handle_secondary_key_and_verify_session(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
+
 	// decrypt 0x30 bytes of the request ...
 	decrypt_cbc_zero_iv(&state->session_key, request->data, 0x30);
-
 	uint8_t* secondary_key_buf = request->data;
 
 	// log everything
@@ -50,17 +50,14 @@ void handle_generate_secondary_key(gc_cmd56_state* state, cmd56_request* request
 	// calculate challenge bytes ...
 	uint8_t exp_challenge[0x20];
 	memcpy(exp_challenge, &state->shared_random, sizeof(shared_value));
-
-	exp_challenge[0x00] |= 0x80;
-	exp_challenge[0x10] |= 0x80;
-
+	or_w_80(exp_challenge, 0x20);
 
 	if (memcmp(exp_challenge, got_challenge, 0x20) == 0) {
-		LOG("(GC) exp_challenge == got_challenge, so authenticated as real PSVita.\n");
+		LOG("(GC) session key validated, unlocking cart\n");
 		state->lock_status = GC_UNLOCKED;
 	}
 	else {
-		LOG("(GC) This is not a real PSVita!\n");
+		LOG("(GC) session key not valid, cart remaining locked.\n");
 
 		LOG("(GC) expected: ");
 		LOG_BUFFER(exp_challenge, 0x20);
@@ -84,8 +81,6 @@ void handle_generate_random_key(gc_cmd56_state* state, cmd56_request* request, c
 	response->data[0x2] = (state->key_id & 0xFF00) >> 8;
 	response->data[0x3] = (state->key_id & 0x00FF);
 
-	rand_bytes(state->cart_random, sizeof(state->cart_random));
-
 	// unknown paramaters, copied values from "Smart As.".
 	// half of it seems to extend into the CART_RANDOM even, its very strange.
 	// the vita does nothing with these, so i can't easily know what there for
@@ -97,20 +92,18 @@ void handle_generate_random_key(gc_cmd56_state* state, cmd56_request* request, c
 	response->data[0x6] = 0x00;
 	response->data[0x7] = 0x03;
  
-	
+	rand_bytes(state->cart_random, sizeof(state->cart_random));
+
 	state->cart_random[0x0] = 0x00;
 	state->cart_random[0x1] = 0x01;
-
 	
 	state->cart_random[0x2] = 0x00;
 	state->cart_random[0x3] = 0x01;
-	
-	
+		
 	state->cart_random[0x4] = 0x00;
 	state->cart_random[0x5] = 0x00;
 	state->cart_random[0x6] = 0x00;
 	state->cart_random[0x7] = 0x00;
-
 
 	state->cart_random[0x8] = 0x00;
 	state->cart_random[0x9] = 0x00;
@@ -138,12 +131,12 @@ void handle_generate_random_key(gc_cmd56_state* state, cmd56_request* request, c
 void handle_verify_secondary_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 
-	// the other bytes in here are never used, but it is seemingly random on a offical cart.
+	// first 0x8 bytes are seemingly random on a offical cart.
 	rand_bytes(response->data, 0x40);
 
 	// copy challenge data
 	memcpy(response->data + 0x8, request->data + 0x0, 0x10);
-	response->data[0x00] |= 0x80; // or it w 0x80 (why does sony do this?)
+	or_w_80(response->data + 0x8, 0x10);
 
 	LOG("(GC) Got challenge bytes back to secondary_key: ");
 	LOG_BUFFER(response->data + 0x9, 0xF);
@@ -168,31 +161,27 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 	uint8_t* exp_cmac = request->data + 0x20;
 	uint8_t got_cmac[0x10];
 	
-	derive_cmac_packet18_packet20(&state->secondary_key, 
+	do_cmd56_cmac_hash(&state->secondary_key, 
 								  response->data,
 								  make_int24(request->command, 0x0, request->additional_data_size), 
 								  got_cmac, 
 								  0x20);
 
-
-	// check type really is 0x2 or 0x3, and its or'd by 0x80 ...
-	if ((response->data[0x1F] == 0x2 || response->data[0x1F] == 0x3) && 
-		(response->data[0x00] | 0x80) == response->data[0x00]) {
-		LOG("(GC) invalid p18 request, 0x1F is not 0x2 or 0x3, OR 0x00 is not or'd with 0x80.\n");
-		cmd56_response_error(response, 0x11);
-	}
-	else if (memcmp(got_cmac, exp_cmac, sizeof(got_cmac)) == 0) {
+	if (memcmp(got_cmac, exp_cmac, sizeof(got_cmac)) == 0) {
 		LOG("(GC) p18 cmac validated success\n");
+		decrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x20);
 
-		uint8_t* challenge_value = response->data + 0x00;
-		decrypt_cbc_zero_iv(&state->secondary_key, challenge_value, 0x20);
-		challenge_value[0x00] |= 0x80;
-
+		// check type really is 0x2 or 0x3, 
+		// and that the challenge value is or'd by 0x80 ...
+		if ((response->data[0x1F] != 0x2 || response->data[0x1F] != 0x3) &&
+			(response->data[0x00] | 0x80) != response->data[0x00]) {
+			LOG("(GC) invalid p18 request, 0x1F is not 0x2 or 0x3, OR 0x00 is not or'd with 0x80.\n");
+			cmd56_response_error(response, 0x11);
+			return;
+		}
+	
 		LOG("(GC) decrypted p18 buffer: ");
 		LOG_BUFFER(response->data, 0x30);
-
-		LOG("(GC) exp_challenge value: ");
-		LOG_BUFFER(challenge_value, 0x20);
 
 		// copy request18 key
 		memcpy(response->data + 0x10, state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
@@ -204,7 +193,11 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 		encrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x30);
 
 		// aes-128-cmac the whole thing
-		derive_cmac_packet18_packet20(&state->secondary_key, response->data, response->response_size, response->data + 0x30, 0x30);
+		do_cmd56_cmac_hash(&state->secondary_key, 
+									response->data, 
+									response->response_size, 
+									response->data + 0x30, 
+									0x30);
 	}
 	else {
 		LOG("(GC) p18 cmac validation failed!!\n");
@@ -220,14 +213,15 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 	
-	// just to make it more accurate to what a real gamecart does.
+	// unused bytes are random
+	// so this just to make it more accurate to what a real gamecart does.
 	rand_bytes(response->data, 0x50);
 	
 	// copy challenge value
 	uint8_t* p20_challenge_value = response->data + 0x8;
 
 	memcpy(p20_challenge_value, request->data, 0x10);
-	p20_challenge_value[0x00] |= 0x80;
+	or_w_80(p20_challenge_value, 0x10);
 
 	LOG("(GC) p20_challenge_value: ");
 	LOG_BUFFER(p20_challenge_value, 0x10);
@@ -244,7 +238,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 	encrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x40);
 
 	// aes-128-cmac the whole thing
-	derive_cmac_packet18_packet20(&state->secondary_key, response->data, response->response_size, response->data + 0x40, 0x40);
+	do_cmd56_cmac_hash(&state->secondary_key, response->data, response->response_size, response->data + 0x40, 0x40);
 }
 
 void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
@@ -260,10 +254,8 @@ void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request
 		LOG_BUFFER(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 
 		// gamecart decides the lower portion of vita random ...
-		rand_entropy(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 		rand_bytes(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
-		state->shared_random.cart_part[0x00] |= 0x80;
-		state->shared_random.vita_part[0x00] |= 0x80;
+		or_w_80(&state->shared_random, 0x20);
 
 		LOG("(GC) generated gc portion of the shared random: ");
 		LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
@@ -303,14 +295,14 @@ void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_respons
 		case CMD_GET_STATUS: // packet3, packet4
 			handle_cmd_status(state, request, request_response);
 			break;
-		case CMD_GENERATE_RANDOM_KEY: // packet5, packet6
+		case CMD_GENERATE_SESSION_KEY: // packet5, packet6
 			handle_generate_random_key(state, request, request_response);
 			break;
 		case CMD_EXCHANGE_SHARED_RANDOM: // packet7, packet8
 			handle_exchange_shared_random(state, request, request_response);
 			break;
-		case CMD_GENERATE_SECONDARY_KEY: // packet9, packet10
-			handle_generate_secondary_key(state, request, request_response);
+		case CMD_EXCHANGE_SECONDARY_KEY_AND_VERIFY_SESSION: // packet9, packet10
+			handle_secondary_key_and_verify_session(state, request, request_response);
 			break;
 			
 		// packet11, packet12 -> CMD_GET_STATUS again
@@ -320,13 +312,13 @@ void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_respons
 			handle_verify_secondary_key(state, request, request_response);
 			break;
 
-		case CMD_P18_KEY_AND_CMAC_SIGNATURE: // packet15, packet16
+		case CMD_GET_P18_KEY_AND_CMAC_SIGNATURE: // packet15, packet16
 			handle_p18key_and_cmac_signature(state, request, request_response);
 			break;
 
 		// packet17, packet18 -> P18_KEY_AND_CMAC_SIGNATURE again
 
-		case CMD_P20_KEY_AND_CMAC_SIGNATURE: // packet19, packet20
+		case CMD_GET_P20_KEY_AND_CMAC_SIGNATURE: // packet19, packet20
 			handle_p20key_and_cmac_signature(state, request, request_response);
 			break;
 		default:
@@ -342,7 +334,7 @@ void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id) {
 	state->key_id = key_id;
 
 	// seed the rng from per game key id ...
-	rand_entropy(&key_id, sizeof(key_id));
+	rand_seed(&key_id, sizeof(key_id));
 }
 
 void gc_cmd56_update_keys_ex(gc_cmd56_state* state, const uint8_t p20_key[0x20], const uint8_t p18_key[0x20]) {
@@ -351,8 +343,8 @@ void gc_cmd56_update_keys_ex(gc_cmd56_state* state, const uint8_t p20_key[0x20],
 	if (p18_key != NULL) memcpy(&state->per_cart_keys.packet18_key, p18_key, sizeof(state->per_cart_keys.packet18_key));
 	
 	// seed the rng from per game keys ...
-	if (p20_key != NULL) rand_entropy(p20_key, sizeof(state->per_cart_keys.packet20_key));
-	if (p18_key != NULL) rand_entropy(p18_key, sizeof(state->per_cart_keys.packet18_key));
+	if (p20_key != NULL) rand_seed(p20_key, sizeof(state->per_cart_keys.packet20_key));
+	if (p18_key != NULL) rand_seed(p18_key, sizeof(state->per_cart_keys.packet18_key));
 }
 
 void gc_cmd56_update_keys(gc_cmd56_state* state, const cmd56_keys* per_cart_keys) {

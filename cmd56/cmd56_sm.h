@@ -22,12 +22,20 @@ enum CMD56_SM_KEY_IDS {
 #define encrypt_cbc_zero_iv(ctx, data, len) AES_CBC_encrypt_buffer(ctx, data, len, NULL);
 
 void derive_session_key(uint8_t* session_key_out, uint8_t* cart_random, int key_id);
-void derive_cmac_packet18_packet20(AES_ctx* ctx, uint8_t* data, uint32_t header, uint8_t* output, size_t size);
+void do_cmd56_cmac_hash(AES_ctx* ctx, uint8_t* data, uint32_t header, uint8_t* output, size_t size);
 
 // random number generators
-void rand_entropy(void* seed, size_t size);
+void rand_seed(void* seed, size_t size);
 void rand_bytes(uint8_t* buf, size_t size);
 uint32_t rand_uint32(int limit);
-#define rand_bytes_or_w_80(buf, size) do { rand_bytes(buf, size); ((uint8_t*)buf)[0] |= 0x80; } while(0);\
+
+#define or_w_80(buf, size) for(int i = 0; i < size; i+=0x10) { \
+								((uint8_t*)buf)[i] |= 0x80; \
+						   }
+
+#define rand_bytes_or_w_80(buf, size) do { \
+										rand_bytes(buf, size); \
+										or_w_80(buf, size); \
+									  } while(0);
 
 #endif

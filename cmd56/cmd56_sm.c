@@ -7,6 +7,7 @@
 #include "crypto/aes.h"
 #include "crypto/aes_cmac.h"
 #include "cmd56_sm.h"
+#include "compiler_defs.h"
 
 /*
 * 
@@ -69,7 +70,7 @@ void derive_session_key(uint8_t* session_key_out, uint8_t* cart_random, int key_
 
 }
 
-void derive_cmac_packet18_packet20(AES_ctx* ctx, uint8_t* data, uint32_t header, uint8_t* output, size_t size) {
+void do_cmd56_cmac_hash(AES_ctx* ctx, uint8_t* data, uint32_t header, uint8_t* output, size_t size) {
 	uint8_t cmac_input[0x50];
 	memset(cmac_input, 0x00, sizeof(cmac_input));
 
@@ -86,23 +87,22 @@ void derive_cmac_packet18_packet20(AES_ctx* ctx, uint8_t* data, uint32_t header,
 // random number generator
 static uint8_t rand_state[0x10] = "TRANS RIGHTS!!!!";
 
-void rand_entropy(void* seed, size_t size) {
+void rand_seed(void* seed, size_t size) {
 	size_t seed_size = (size < sizeof(rand_state)) ? size : sizeof(rand_state);
-
-	for (int i = 0; i < seed_size; i++) 
-		rand_state[i] ^= ((uint8_t*)seed)[i];
+	for (int i = 0; i < seed_size; i++) rand_state[i % sizeof(rand_state)] ^= ((uint8_t*)seed)[i];
 }
+
 
 void rand_bytes(uint8_t* buf, size_t size) {
 #ifdef USE_PS3_MODE
 	memset(buf, 0xAA, size);
 	return;
 #else
-	
-	// seed the rng, or well as best as we can without any platform dependant code...
-	rand_entropy(buf, size);								// seed on buffer content
-	rand_entropy(&buf, sizeof(uintptr_t));					// seed on address location (ala; aslr)
-	
+
+
+	// seed the rng, based on a varity of factors
+	rand_seed(&buf, sizeof(uintptr_t));	// seed on address location (ala; aslr)
+
 	for (int i = 0; i < size; i += sizeof(rand_state)) {
 		// determine copy size 
 		size_t copy_size = ((size - i) < sizeof(rand_state)) ? (size - i) : sizeof(rand_state);

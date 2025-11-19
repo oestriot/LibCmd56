@@ -40,8 +40,6 @@ typedef struct gc_cmd56_state {
     AES_ctx secondary_key;
 } gc_cmd56_state;
 
-
-
 // exposed functions:
 void gc_cmd56_init(gc_cmd56_state* state, const cmd56_keys* keys);
 void gc_cmd56_update_keyid(gc_cmd56_state* state, uint16_t key_id);
