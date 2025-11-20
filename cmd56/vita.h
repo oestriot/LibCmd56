@@ -16,6 +16,7 @@ typedef void (*recv_t)(uint8_t* data, size_t size);
 typedef enum vita_error_code {
     GC_AUTH_OK = 0x00,
 
+    GC_INVALID_ARGUMENT = 0x8001000,
     GC_AUTH_ERROR_START_FAIL = 0x8001001,
 
     GC_AUTH_ERROR_GET_CART_RANDOM_PROTOTYPE_KEY = 0x8002001,
@@ -83,8 +84,8 @@ typedef struct vita_cmd56_state {
 // exposed functions:
 void vita_cmd56_init(vita_cmd56_state* state, send_t send_func, recv_t recv_func);
 void vita_cmd56_init_ex(vita_cmd56_state* state, send_t send_func, recv_t recv_func, bool allow_prototype_keys);
-void* vita_cmd56_get_keys(vita_cmd56_state* state, cmd56_keys* keys);
-void* vita_cmd56_get_keys_ex(vita_cmd56_state* state, uint8_t p20_key[0x20], uint8_t p18_key[0x20]);
+void vita_cmd56_get_keys(vita_cmd56_state* state, cmd56_keys* keys);
+void vita_cmd56_get_keys_ex(vita_cmd56_state* state, uint8_t p20_key[0x20], uint8_t p18_key[0x20]);
 int vita_cmd56_run(vita_cmd56_state* state);
 
 #endif

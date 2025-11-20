@@ -376,12 +376,12 @@ void vita_cmd56_get_keyid(vita_cmd56_state* state, cmd56_sm_keyid* key_id) {
 	if (key_id != NULL) memcpy(key_id, &state->key_id, sizeof(state->key_id));
 }
 
-void* vita_cmd56_get_keys(vita_cmd56_state* state, cmd56_keys* per_cart_keys) {
+void vita_cmd56_get_keys(vita_cmd56_state* state, cmd56_keys* per_cart_keys) {
 	if (state == NULL) return;
 
 	if (per_cart_keys != NULL) memcpy(per_cart_keys, &state->per_cart_keys, sizeof(cmd56_keys));
 }
-void* vita_cmd56_get_keys_ex(vita_cmd56_state* state, uint8_t p20_key[0x20], uint8_t p18_key[0x20]) {
+void vita_cmd56_get_keys_ex(vita_cmd56_state* state, uint8_t p20_key[0x20], uint8_t p18_key[0x20]) {
 	if (state == NULL) return;
 
 	if (p20_key != NULL) memcpy(p20_key, state->per_cart_keys.packet20_key, sizeof(state->per_cart_keys.packet20_key));
@@ -389,7 +389,7 @@ void* vita_cmd56_get_keys_ex(vita_cmd56_state* state, uint8_t p20_key[0x20], uin
 }
 
 int vita_cmd56_run(vita_cmd56_state* state) {
-	if (state == NULL) return;
+	if (state == NULL) return GC_INVALID_ARGUMENT;
 
 	cmd56_request request;
 	cmd56_response response;

@@ -80,7 +80,7 @@ void AES_CMAC_buffer(AES_ctx* aes_ctx, void *input_p, size_t length, uint8_t *ma
     memcpy(mac_value, previous_block_ciphertext, AES_BLOCKSIZE);
 }
 
-void AES_CMAC_buffer_key(uint8_t* key, void* input, size_t length, uint8_t* output) {
+void AES_CMAC_buffer_key(const uint8_t* key, void* input, size_t length, uint8_t* output) {
     struct AES_ctx ctx;
     AES_init_ctx(&ctx, key);
     AES_CMAC_buffer(&ctx, input, length, output);

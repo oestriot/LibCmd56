@@ -16,11 +16,12 @@
 #endif
 
 #ifdef __GNUC__
-#define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
+#define PACK( declaration ) declaration __attribute__((__packed__))
+#elif _MSC_VER
+#define PACK( declaration ) __pragma(pack(push, 1) ) declaration __pragma(pack(pop))
 #endif
 
 #ifdef _MSC_VER
-#define PACK( __Declaration__ ) __pragma(pack(push, 1) ) __Declaration__ __pragma(pack(pop))
 #define endian_swap _byteswap_ushort
 #elif __GNUC__
 #define endian_swap __builtin_bswap16
@@ -56,16 +57,13 @@ typedef enum bool {
 #if defined(__GNUC__)
 typedef __SIZE_TYPE__ size_t;
 typedef size_t uintptr_t;
-typedef size_t intptr_t;
 #elif defined(_MSC_VER)
 
 #ifdef _WIN64
 typedef unsigned __int64 size_t;
-typedef __int64          intptr_t;
 typedef unsigned __int64 uintptr_t;
 #else
 typedef unsigned int     size_t;
-typedef int              intptr_t;
 typedef unsigned int     uintptr_t;
 #endif
 
@@ -90,8 +88,8 @@ static inline void* __impl_memset(void* buf, int c, size_t n) {
 }
 static inline int __impl_memcmp(void const* a, void const* b, size_t len) {
     size_t count = len;
-    uint8_t* s1 = a;
-    uint8_t* s2 = b;
+    uint8_t* s1 = (uint8_t*)a;
+    uint8_t* s2 = (uint8_t*)b;
     while (count-- > 0)
     {
         if (*s1++ != *s2++) {

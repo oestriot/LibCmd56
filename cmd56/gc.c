@@ -32,19 +32,19 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 	cmd56_response_start(request, response);
 	get_response(generate_session_key_response);
 
-	resp->unk = 0xE0;
+	resp->unk = endian_swap(0xE000);
 
 	// specify key_id
 	LOG("(GC) Key ID %x\n", state->key_id);
 	resp->key_id = endian_swap(state->key_id);
 
 	// unknown paramaters, copied values from "Smart As.".
-	// half of it seems to extend into the CART_RANDOM even, its very strange.
 	// the vita does nothing with these, so i can't easily know what there for
 	// this is just included incase they decide to do something with them in a later firmware..
+	// also seems to be a bug where only half of the CART_RANDDOM is actually random, its weird
 
-	resp->unk2 = 0x0002;
-	resp->unk3 = 0x0003;
+	resp->unk2 = endian_swap(0x2);
+	resp->unk3 = endian_swap(0x3);
 
 	rand_bytes(resp->cart_random, sizeof(resp->cart_random));
 
