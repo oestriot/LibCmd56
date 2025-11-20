@@ -27,7 +27,7 @@ clean:
 	rm -r build libcmd56.a
 
 
-build/test.o: test/main.c build
+build/test.o: test_pc/main.c build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/test: build/test.o libcmd56.a

@@ -103,6 +103,8 @@ static inline int __impl_memcmp(void const* a, void const* b, size_t len) {
 #define memcpy __impl_memcpy
 #define memcmp __impl_memcmp
 
+#ifndef offsetof
 #define offsetof(st, m) ((size_t)&(((st*)0)->m))
+#endif
 
 #endif

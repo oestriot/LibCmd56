@@ -5,7 +5,7 @@ VisualStudioVersion = 17.10.35013.160
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LibCmd56", "cmd56\LibCmd56.vcxproj", "{D3A1FF07-5E89-4873-9011-CC4C6786C4C6}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Cmd56Test", "test\Cmd56Test.vcxproj", "{B4833C9B-E416-41C3-BEB8-DE75974F33E7}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Cmd56Test", "test_pc\Cmd56Test.vcxproj", "{B4833C9B-E416-41C3-BEB8-DE75974F33E7}"
 	ProjectSection(ProjectDependencies) = postProject
 		{D3A1FF07-5E89-4873-9011-CC4C6786C4C6} = {D3A1FF07-5E89-4873-9011-CC4C6786C4C6}
 	EndProjectSection

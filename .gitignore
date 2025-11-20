@@ -60,4 +60,5 @@ dkms.conf
 *.vs/*
 
 
+test_vita/build/*
 build/

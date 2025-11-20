@@ -25,8 +25,12 @@ vita_error_code start_request(vita_cmd56_state* state, cmd56_request* request, c
 	get_response(start_response);
 
 	if (resp->start[0xD] == 0x1 && resp->start[0xE] == 0x1 && resp->start[0xF] == 0x4) {
+		LOG("(VITA) START Response is what is expected.\n");
 		return GC_AUTH_RETURN_STATUS;
 	}
+	LOG("(VITA) START Response is not what is expected: ");
+	LOG_BUFFER(resp->start, sizeof(resp->start));
+
 	return GC_AUTH_ERROR_START_FAIL;
 }
 
