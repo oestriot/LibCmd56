@@ -21,7 +21,9 @@
 
 #ifdef _MSC_VER
 #define PACK( __Declaration__ ) __pragma(pack(push, 1) ) __Declaration__ __pragma(pack(pop))
-#define __builtin_bswap16 _byteswap_ushort
+#define endian_swap _byteswap_ushort
+#elif __GNUC__
+#define endian_swap __builtin_bswap16
 #endif
 
 #ifndef NULL 

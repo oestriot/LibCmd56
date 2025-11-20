@@ -13,6 +13,8 @@
 #define make_int(b1, b2, b3, b4) ((b4 << 32) | (b3 << 16) | (b2 << 8) | (b1 << 0))
 
 #define calc_size(type) (sizeof(type) + 0x3)
+#define get_response(type) type* resp = ((type*)response->data)
+#define get_request(type) type* req = ((type*)request->data)
 
 extern const uint8_t CMD56_MAGIC[0x20];
 
@@ -125,11 +127,11 @@ PACK(typedef struct verify_secondary_key_response {
     uint8_t pad2[0x8]; // rng
 } verify_secondary_key_response);
 
-PACK(typedef struct get_p18_and_cmac_signature_response {
+PACK(typedef struct get_p18_key_and_cmac_signature_response {
     uint8_t challenge_bytes[0x10];
     uint8_t p18_key[0x20];
     uint8_t cmac_signature[0x10];
-} get_p18_and_cmac_signature_response);
+} get_p18_key_and_cmac_signature_response);
 
 PACK(typedef struct get_p20_key_and_cmac_signature_response {
     uint8_t pad[8]; // rng

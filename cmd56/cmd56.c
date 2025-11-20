@@ -21,7 +21,7 @@ void cmd56_response_start(cmd56_request* request_buffer, cmd56_response* respons
 	memset(response, 0x00, sizeof(cmd56_response));
 	response->response_code = request_buffer->expected_response_code;
 	response->additional_data_size = 0;
-	response->response_size = __builtin_bswap16((request_buffer->expected_response_size > sizeof(cmd56_response)) ? sizeof(cmd56_response) : (uint16_t)request_buffer->expected_response_size);
+	response->response_size = endian_swap((request_buffer->expected_response_size > sizeof(cmd56_response)) ? sizeof(cmd56_response) : (uint16_t)request_buffer->expected_response_size);
 	response->error_code = 0;
 }
 
@@ -29,7 +29,7 @@ void cmd56_response_error(cmd56_response* response, uint8_t error) {
 	response->error_code = error;
 	response->response_code = error;
 
-	uint16_t size = __builtin_bswap16((uint16_t)response->response_size);
+	uint16_t size = endian_swap((uint16_t)response->response_size);
 	memset(response->data, 0xFF, size);
 	
 	LOG("(CMD56) cmd56_response_error error_code=0x%x\n", response->error_code);

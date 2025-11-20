@@ -14,8 +14,6 @@
 										  sobj->send( ((const uint8_t*)req), sizeof(cmd56_request)); \
 										  sobj->recv( ((uint8_t*)resp),      sizeof(cmd56_response)); } while(0);
 
-#define get_response(type) type* resp = ((type*)response->data)
-#define get_request(type) type* req = ((type*)request->data)
 
 
 #define GC_AUTH_RETURN_STATUS (response->error_code != 0x0) ? GC_AUTH_ERROR_REPORTED : GC_AUTH_OK;
@@ -47,7 +45,7 @@ vita_error_code get_session_key(vita_cmd56_state* state, cmd56_request* request,
 	send_packet(state, request, response);
 	get_response(generate_session_key_response);
 
-	state->key_id = __builtin_bswap16(resp->key_id);
+	state->key_id = endian_swap(resp->key_id);
 	memcpy(state->cart_random, resp->cart_random, sizeof(state->cart_random));
 
 	LOG("(VITA) Key ID: %x\n", state->key_id);
@@ -76,7 +74,7 @@ vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* r
 
 	// copy key id into request
 	LOG("(VITA) cart key id: %x\n", state->key_id);
-	req->key_id = __builtin_bswap16(state->key_id);
+	req->key_id = endian_swap(state->key_id);
 	
 	// randomize vita portion of shared random
 	rand_bytes(req->shared_vita_part, sizeof(req->shared_vita_part));
@@ -97,7 +95,7 @@ vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* r
 		LOG("(VITA) verify_shared_random (response) plaintext: ");
 		LOG_BUFFER(resp, sizeof(exchange_shared_random_response));
 
-		if (memcmp(req->shared_vita_part + 0x1, state->shared_random.vita_part + 0x1, sizeof(state->shared_random.vita_part)-0x1) == 0) {
+		if (memcmp(resp->shared_vita_part + 0x1, state->shared_random.vita_part + 0x1, sizeof(state->shared_random.vita_part)-0x1) == 0) {
 			LOG("(VITA) cart and vita have the same shared_random.vita_part ...\n");
 			
 			// copy cart part into global state shared_random
@@ -105,7 +103,6 @@ vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* r
 
 			LOG("(VITA) shared random, cart part: ");
 			LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
-			or_w_80(&state->shared_random, sizeof(state->shared_random));
 
 			LOG("(VITA) shared random: ");
 			LOG_BUFFER(&state->shared_random, sizeof(shared_random));
@@ -137,6 +134,7 @@ vita_error_code generate_secondary_key_and_verify_session(vita_cmd56_state* stat
 	LOG_BUFFER(req->secondary_key, sizeof(req->secondary_key));
 	
 	// copy shared_random to challenge
+	or_w_80(&state->shared_random, sizeof(state->shared_random));
 	memcpy(&req->challenge_bytes, &state->shared_random, sizeof(state->shared_random));
 	LOG("(VITA) challenge bytes: ");
 	LOG_BUFFER(&req->challenge_bytes, sizeof(req->challenge_bytes));
@@ -207,7 +205,7 @@ vita_error_code verify_secondary_key(vita_cmd56_state* state, cmd56_request* req
 }
 
 vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response, uint8_t type) {
-	cmd56_request_start(request, CMD_GET_P18_KEY_AND_CMAC_SIGNATURE, calc_size(get_p18_key_and_cmac_signature_request), calc_size(get_p18_and_cmac_signature_response), 0x11);
+	cmd56_request_start(request, CMD_GET_P18_KEY_AND_CMAC_SIGNATURE, calc_size(get_p18_key_and_cmac_signature_request), calc_size(get_p18_key_and_cmac_signature_response), 0x11);
 	get_request(get_p18_key_and_cmac_signature_request);
 
 	uint8_t expected_challenge[0x10];
@@ -239,7 +237,7 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 	LOG_BUFFER(request->data, 0x30);
 
 	send_packet(state, request, response);
-	get_response(get_p18_and_cmac_signature_response);
+	get_response(get_p18_key_and_cmac_signature_response);
 
 	if (response->error_code == GC_AUTH_OK) { // check status from gc
 		uint8_t expected_cmac[0x10];
@@ -249,16 +247,16 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 						   resp, 
 			               response->response_size, 
 			               expected_cmac, 
-			               offsetof(get_p18_and_cmac_signature_response, cmac_signature));
+			               offsetof(get_p18_key_and_cmac_signature_response, cmac_signature));
 
 		if (memcmp(expected_cmac, resp->cmac_signature, sizeof(expected_cmac)) == 0) { // check cmac
 			LOG("(VITA) CMAC Matches!\n");
 
 			// decrypt buffer
-			decrypt_cbc_zero_iv(&state->secondary_key, resp, offsetof(get_p18_and_cmac_signature_response, cmac_signature));
+			decrypt_cbc_zero_iv(&state->secondary_key, resp, offsetof(get_p18_key_and_cmac_signature_response, cmac_signature));
 
 			LOG("(VITA) decrypted p18 response: ");
-			LOG_BUFFER(resp, sizeof(get_p18_and_cmac_signature_response));
+			LOG_BUFFER(resp, sizeof(get_p18_key_and_cmac_signature_response));
 
 			// the first byte doesnt have to match.
 			if (memcmp(expected_challenge+0x1, resp->challenge_bytes+0x1, sizeof(expected_challenge) - 0x1) == 0) { 

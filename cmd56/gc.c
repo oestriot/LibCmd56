@@ -13,49 +13,134 @@
 
 void handle_cmd_start(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response){
 	cmd56_response_start(request, response);
+	get_response(start_response);
 	state->lock_status = GC_LOCKED;
 
-	response->data[0xD] = 0x1;
-	response->data[0xE] = 0x1;
-	response->data[0xF] = 0x4;
+	resp->start[0xD] = 0x1;
+	resp->start[0xE] = 0x1;
+	resp->start[0xF] = 0x4;
 }
 
 void handle_cmd_status(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
-	response->data[0x0] = (state->lock_status & 0x00FF);
-	response->data[0x1] = (state->lock_status & 0xFF00) >> 8; 
+	get_response(get_status_response);
+
+	resp->status = state->lock_status;
+}
+
+void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
+	get_response(generate_session_key_response);
+
+	resp->unk = 0xE0;
+
+	// specify key_id
+	LOG("(GC) Key ID %x\n", state->key_id);
+	resp->key_id = endian_swap(state->key_id);
+
+	// unknown paramaters, copied values from "Smart As.".
+	// half of it seems to extend into the CART_RANDOM even, its very strange.
+	// the vita does nothing with these, so i can't easily know what there for
+	// this is just included incase they decide to do something with them in a later firmware..
+
+	resp->unk2 = 0x0002;
+	resp->unk3 = 0x0003;
+
+	rand_bytes(resp->cart_random, sizeof(resp->cart_random));
+
+	resp->cart_random[0x0] = 0x00;
+	resp->cart_random[0x1] = 0x01;
+
+	resp->cart_random[0x2] = 0x00;
+	resp->cart_random[0x3] = 0x01;
+
+	resp->cart_random[0x4] = 0x00;
+	resp->cart_random[0x5] = 0x00;
+	resp->cart_random[0x6] = 0x00;
+	resp->cart_random[0x7] = 0x00;
+
+	resp->cart_random[0x8] = 0x00;
+	resp->cart_random[0x9] = 0x00;
+	resp->cart_random[0xA] = 0x00;
+	resp->cart_random[0xB] = 0x04; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
+	// 0x4 in Smart As,
+	// (possibly: 0x3 on 4GB gc, and 0x4 on 2GB gc? needs more testing.)
+	resp->cart_random[0xC] = 0x00;
+
+	memcpy(state->cart_random, resp->cart_random, sizeof(state->cart_random));
+
+	LOG("(GC) cart_random: ");
+	LOG_BUFFER(state->cart_random, sizeof(state->cart_random));
+
+	// generate session key
+	uint8_t session_key[0x10];
+	derive_session_key(session_key, state->cart_random, state->key_id);
+
+	LOG("(GC) session_key: ");
+	LOG_BUFFER(session_key, sizeof(session_key));
+
+	AES_init_ctx(&state->session_key, session_key);
+}
+
+void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+	cmd56_response_start(request, response);
+	get_response(exchange_shared_random_response);
+	get_request(exchange_shared_random_request);
+
+	if (endian_swap(req->key_id) == state->key_id) {
+		LOG("(GC) got_key_id == state->key_id\n");
+
+		memcpy(state->shared_random.vita_part, req->shared_vita_part, sizeof(req->shared_vita_part));
+		or_w_80(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
+
+		LOG("(GC) read vita portion of the shared random: ");
+		LOG_BUFFER(req->shared_vita_part, sizeof(req->shared_vita_part));
+
+		// gamecart decides the lower portion of shared random ...
+		rand_bytes_or_w_80(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
+
+		LOG("(GC) generated gc portion of the shared random: ");
+		LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
+
+		// this is sent back to the console in reverse order ...
+		memcpy(resp->shared_cart_part, state->shared_random.cart_part, sizeof(resp->shared_cart_part));
+		memcpy(resp->shared_vita_part, state->shared_random.vita_part, sizeof(resp->shared_vita_part));
+
+		LOG("(GC) handle_shared_random plaintext: ");
+		LOG_BUFFER(resp, sizeof(exchange_shared_random_response));
+
+		encrypt_cbc_zero_iv(&state->session_key, resp, sizeof(exchange_shared_random_response));
+	}
+	else {
+		LOG("(GC) key_id from vita not acknowledged? (got: 0x%02X, expected: 0x%02X)\n", endian_swap(req->key_id), state->key_id);
+		ABORT();
+		cmd56_response_error(response, 0x11);
+	}
+
 }
 
 void handle_secondary_key_and_verify_session(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
+	get_request(exchange_secondary_key_and_verify_session_request);
 
 	// decrypt 0x30 bytes of the request ...
 	LOG("(GC) encrypted request buffer: ");
-	LOG_BUFFER(request->data, 0x30);
+	LOG_BUFFER(req, sizeof(exchange_secondary_key_and_verify_session_request));
 
-	decrypt_cbc_zero_iv(&state->session_key, request->data, 0x30);
-	uint8_t* secondary_key_buf = request->data;
+	decrypt_cbc_zero_iv(&state->session_key, req, sizeof(exchange_secondary_key_and_verify_session_request));
 
 	// log everything
 	LOG("(GC) decrypted request buffer: ");
-	LOG_BUFFER(request->data, 0x30);
+	LOG_BUFFER(req, sizeof(exchange_secondary_key_and_verify_session_request));
+
+	LOG("(GC) got_challenge: ");
+	LOG_BUFFER(&req->challenge_bytes, sizeof(req->challenge_bytes));
 
 	LOG("(GC) secondary_key: ");
-	uint8_t* got_secondary_key = secondary_key_buf + 0x00;
-	LOG_BUFFER(got_secondary_key, 0x10);
-	AES_init_ctx(&state->secondary_key, got_secondary_key);
+	LOG_BUFFER(req->secondary_key, sizeof(req->secondary_key));
+	AES_init_ctx(&state->secondary_key, req->secondary_key);
 
-	uint8_t* got_challenge = request->data + 0x10;
-	LOG("(GC) got_challenge: ");
-	LOG_BUFFER(got_challenge, 0x20);
-
-
-	// calculate challenge bytes ...
-	uint8_t exp_challenge[0x20];
-	memcpy(exp_challenge, &state->shared_random, sizeof(shared_random));
-	or_w_80(exp_challenge, 0x20);
-
-	if (memcmp(exp_challenge, got_challenge, 0x20) == 0) {
+	if (memcmp(&req->challenge_bytes, &state->shared_random, sizeof(shared_random)) == 0) {
 		LOG("(GC) session key validated, unlocking cart\n");
 		state->lock_status = GC_UNLOCKED;
 	}
@@ -63,92 +148,36 @@ void handle_secondary_key_and_verify_session(gc_cmd56_state* state, cmd56_reques
 		LOG("(GC) session key not valid, cart remaining locked.\n");
 
 		LOG("(GC) expected: ");
-		LOG_BUFFER(exp_challenge, 0x20);
+		LOG_BUFFER(&state->shared_random, sizeof(shared_random));
 
-		LOG("(GC) got: secondary_key_buf+0x10: ");
-		LOG_BUFFER(secondary_key_buf + 0x10, 0x20);
+		LOG("(GC) got: ");
+		LOG_BUFFER(&req->challenge_bytes, sizeof(shared_random));
 
 		state->lock_status = GC_LOCKED;
 		cmd56_response_error(response, 0xF1);
 	}
 }
 
-void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	cmd56_response_start(request, response);
-
-	response->data[0x0] = 0xE0;
-	response->data[0x1] = 0x00;
-
-	// specify key_id
-	LOG("(GC) Key ID %x\n", state->key_id);
-	response->data[0x2] = (state->key_id & 0xFF00) >> 8;
-	response->data[0x3] = (state->key_id & 0x00FF);
-
-	// unknown paramaters, copied values from "Smart As.".
-	// half of it seems to extend into the CART_RANDOM even, its very strange.
-	// the vita does nothing with these, so i can't easily know what there for
-	// this is just included incase they decide to do something with them in a later firmware..
-
-	response->data[0x4] = 0x00;
-	response->data[0x5] = 0x02;
-
-	response->data[0x6] = 0x00;
-	response->data[0x7] = 0x03;
- 
-	rand_bytes(state->cart_random, sizeof(state->cart_random));
-
-	state->cart_random[0x0] = 0x00;
-	state->cart_random[0x1] = 0x01;
-	
-	state->cart_random[0x2] = 0x00;
-	state->cart_random[0x3] = 0x01;
-		
-	state->cart_random[0x4] = 0x00;
-	state->cart_random[0x5] = 0x00;
-	state->cart_random[0x6] = 0x00;
-	state->cart_random[0x7] = 0x00;
-
-	state->cart_random[0x8] = 0x00;
-	state->cart_random[0x9] = 0x00;
-	state->cart_random[0xA] = 0x00;
-	state->cart_random[0xB] = 0x04; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
-								    // 0x4 in Smart As,
-								    // (possibly: 0x3 on 4GB gc, and 0x4 on 2GB gc? needs more testing.)
-	state->cart_random[0xC] = 0x00;
-
-	memcpy(response->data + 0x8, state->cart_random, sizeof(state->cart_random));
-	
-	LOG("(GC) Cart Random: ");
-	LOG_BUFFER(state->cart_random, sizeof(state->cart_random));
-
-	// generate session key
-	uint8_t session_key[0x10];
-	derive_session_key(session_key, state->cart_random, state->key_id);
-
-	LOG("(GC) Session key: ");
-	LOG_BUFFER(session_key, sizeof(session_key));
-
-	AES_init_ctx(&state->session_key, session_key);
-}
-
 void handle_verify_secondary_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
+	get_response(verify_secondary_key_response);
+	get_request(verify_secondary_key_request);
 
-	// first 0x8 bytes are seemingly random on a offical cart.
-	rand_bytes(response->data, 0x40);
+	// padding is random, so we randomize the entire response first.
+	rand_bytes(resp, sizeof(verify_secondary_key_response));
 
 	// copy challenge data
-	memcpy(response->data + 0x8, request->data + 0x0, 0x10);
-	or_w_80(response->data + 0x8, 0x10);
+	memcpy(resp->challenge_bytes, req->challenge_bytes, sizeof(req->challenge_bytes));
+	or_w_80(resp->challenge_bytes, sizeof(resp->challenge_bytes));
 
-	LOG("(GC) Got challenge bytes back to secondary_key: ");
-	LOG_BUFFER(response->data + 0x9, 0xF);
+	LOG("(GC) Got challenge bytes: ");
+	LOG_BUFFER(resp->challenge_bytes, sizeof(resp->challenge_bytes));
 
 	// copy cart random
-	memcpy(response->data + 0x18, state->cart_random, sizeof(state->cart_random));
+	memcpy(resp->cart_random, state->cart_random, sizeof(state->cart_random));
 
-	LOG("(GC) Plaintext of secondary_key challenge response request: ");
-	LOG_BUFFER(response->data, 0x40);
+	LOG("(GC) Plaintext verify_secondary_key response: ");
+	LOG_BUFFER(resp, sizeof(verify_secondary_key_response));
 
 	encrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x40);
 }
@@ -156,56 +185,58 @@ void handle_verify_secondary_key(gc_cmd56_state* state, cmd56_request* request, 
 
 void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
-
-	// copy challange to response
-	memcpy(response->data + 0x00, request->data + 0x00, 0x20);
+	get_response(get_p18_key_and_cmac_signature_response);
+	get_request(get_p18_key_and_cmac_signature_request);
 
 	// calcluate cmac and get expected cmac
-	uint8_t* exp_cmac = request->data + 0x20;
 	uint8_t got_cmac[0x10];
 	
 	do_cmd56_cmac_hash(&state->secondary_key, 
-								  response->data,
-								  make_int24(request->command, 0x0, request->additional_data_size), 
-								  got_cmac, 
-								  0x20);
+						req,
+						make_int24(request->command, 0x0, request->additional_data_size), 
+						got_cmac, 
+						offsetof(get_p18_key_and_cmac_signature_request, cmac_signature));
 
-	if (memcmp(got_cmac, exp_cmac, sizeof(got_cmac)) == 0) {
+	if (memcmp(got_cmac, req->cmac_signature, sizeof(got_cmac)) == 0) {
 		LOG("(GC) p18 cmac validated success\n");
-		decrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x20);
+		decrypt_cbc_zero_iv(&state->secondary_key, req, offsetof(get_p18_key_and_cmac_signature_request, cmac_signature));
 
 		// check type really is 0x2 or 0x3, 
 		// and that the challenge value is or'd by 0x80 ...
-		if ((response->data[0x1F] != 0x2 || response->data[0x1F] != 0x3) &&
-			(response->data[0x00] | 0x80) != response->data[0x00]) {
-			LOG("(GC) invalid p18 request, 0x1F is not 0x2 or 0x3, OR 0x00 is not or'd with 0x80.\n");
+		if ((req->type != 0x2 || req->type != 0x3) &&
+			(req->challenge_bytes[0x00] | 0x80) != req->challenge_bytes[0x00]) {
+			LOG("(GC) invalid p18 request, 0x1F is not 0x2 or 0x3, OR challenge_bytes[0] is not logical or'd with 0x80.\n");
 			cmd56_response_error(response, 0x11);
 			return;
 		}
 	
-		LOG("(GC) decrypted p18 buffer: ");
-		LOG_BUFFER(response->data, 0x30);
+		LOG("(GC) decrypted p18 request buffer: ");
+		LOG_BUFFER(req, sizeof(get_p18_key_and_cmac_signature_request));
+
+		// copy challange to response
+		memcpy(resp->challenge_bytes, req->challenge_bytes, sizeof(req->challenge_bytes));
+		LOG("(GC) response challenge_bytes: ");
+		LOG_BUFFER(resp->p18_key, sizeof(resp->p18_key));
 
 		// copy request18 key
-		memcpy(response->data + 0x10, state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
-
-		LOG("(GC) packet18_key: ");
-		LOG_BUFFER(state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
+		memcpy(resp->p18_key, state->per_cart_keys.packet18_key, sizeof(resp->p18_key));
+		LOG("(GC) p18_key: ");
+		LOG_BUFFER(resp->p18_key, sizeof(resp->p18_key));
 
 		// encrypt buffer
-		encrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x30);
+		encrypt_cbc_zero_iv(&state->secondary_key, resp, offsetof(get_p18_key_and_cmac_signature_response, cmac_signature));
 
 		// aes-128-cmac the whole thing
 		do_cmd56_cmac_hash(&state->secondary_key, 
-									response->data, 
-									response->response_size, 
-									response->data + 0x30, 
-									0x30);
+						    resp, 
+						    response->response_size, 
+						    resp->cmac_signature, 
+						    offsetof(get_p18_key_and_cmac_signature_response, cmac_signature));
 	}
 	else {
 		LOG("(GC) p18 cmac validation failed!!\n");
 		LOG("(GC) expected: ");
-		LOG_BUFFER(exp_cmac, sizeof(got_cmac));
+		LOG_BUFFER(req->cmac_signature, sizeof(req->cmac_signature));
 		LOG("(GC) got:");
 		LOG_BUFFER(got_cmac, sizeof(got_cmac));
 		cmd56_response_error(response, 0xF4);
@@ -215,73 +246,37 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 
 void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
-	
-	// unused bytes are random
-	// so this just to make it more accurate to what a real gamecart does.
-	rand_bytes(response->data, 0x50);
-	
-	// copy challenge value
-	uint8_t* p20_challenge_value = response->data + 0x8;
+	get_response(get_p20_key_and_cmac_signature_response);
+	get_request(get_p20_key_and_cmac_signature_request);
 
-	memcpy(p20_challenge_value, request->data, 0x10);
-	or_w_80(p20_challenge_value, 0x10);
+	// padding is random, so randomize the entire response.
+	rand_bytes(resp, sizeof(get_p20_key_and_cmac_signature_response));
+	
+	// copy challenge bytes
+	memcpy(resp->challenge_bytes, req->challenge_bytes, sizeof(req->challenge_bytes));
+	or_w_80(resp->challenge_bytes, sizeof(resp->challenge_bytes));
 
 	LOG("(GC) p20_challenge_value: ");
-	LOG_BUFFER(p20_challenge_value, 0x10);
+	LOG_BUFFER(resp->challenge_bytes, sizeof(resp->challenge_bytes));
 
 	// copy p20 key
-
 	LOG("(GC) copying p20 key.\n");
-	memcpy(response->data + 0x18, state->per_cart_keys.packet20_key, sizeof(state->per_cart_keys.packet20_key));
+	memcpy(resp->p20_key, state->per_cart_keys.packet20_key, sizeof(resp->p20_key));
 
 	LOG("(GC) p20 plaintext response: ");
-	LOG_BUFFER(response->data, 0x40);
+	LOG_BUFFER(resp, offsetof(get_p20_key_and_cmac_signature_response, cmac_signature));
 
 	// encrypt buffer
-	encrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x40);
+	encrypt_cbc_zero_iv(&state->secondary_key, resp, offsetof(get_p20_key_and_cmac_signature_response, cmac_signature));
 
 	// aes-128-cmac the whole thing
-	do_cmd56_cmac_hash(&state->secondary_key, response->data, response->response_size, response->data + 0x40, 0x40);
+	do_cmd56_cmac_hash(&state->secondary_key, 
+						resp, 
+						response->response_size, 
+						resp->cmac_signature,
+						offsetof(get_p20_key_and_cmac_signature_response, cmac_signature));
 }
 
-void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	cmd56_response_start(request, response);
-
-	cmd56_sm_keyid got_key_id = make_short(request->data[1], request->data[0]);
-
-	if (got_key_id == state->key_id) {
-		LOG("(GC) got_key_id == state->key_id\n");
-
-		memcpy(state->shared_random.vita_part, request->data + 0x2, sizeof(state->shared_random.vita_part));
-		LOG("(GC) read vita portion of the shared random: ");
-		LOG_BUFFER(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
-
-		// gamecart decides the lower portion of vita random ...
-		rand_bytes(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
-		or_w_80(&state->shared_random, sizeof(state->shared_random));
-
-		LOG("(GC) generated gc portion of the shared random: ");
-		LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
-
-		// this is sent back to the console in reverse order ...
-		memcpy(response->data + 0x00, state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
-		memcpy(response->data + 0x10, state->shared_random.vita_part, sizeof(state->shared_random.vita_part));		
-
-		LOG("(GC) handle_shared_random plaintext: ");
-		LOG_BUFFER(response->data, sizeof(shared_random));
-
-		encrypt_cbc_zero_iv(&state->session_key, response->data, 0x20);
-		LOG("(GC) handle_shared_random ciphertext: ");
-		LOG_BUFFER(response->data, 0x20);
-	}
-	else {
-		LOG("(GC) key_id from vita not acknowledged? (got: 0x%02X, expected: 0x%02X)\n", got_key_id, state->key_id);
-		ABORT();
-		cmd56_response_error(response, 0x11);
-	}
-
-
-}
 
 void handle_unknown_request(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	LOG("(GC) Unknown command: 0x%02X\n", request->command);
