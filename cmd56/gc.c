@@ -38,7 +38,9 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 	LOG("(GC) Key ID %x\n", state->key_id);
 	resp->key_id = endian_swap(state->key_id);
 
-	// unknown paramaters, copied values from "Smart As.".
+	// unknown paramaters, copied values from "Smart As."; they seem to be the same for most*
+	// games i have, with few exceptions (noted below)
+
 	// the vita does nothing with these, so i can't easily know what there for
 	// this is just included incase they decide to do something with them in a later firmware..
 	// also seems to be a bug where only half of the CART_RANDDOM is actually random, its weird
@@ -62,16 +64,16 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 	resp->cart_random[0x8] = 0x00;
 	resp->cart_random[0x9] = 0x00;
 	resp->cart_random[0xA] = 0x00;
-	resp->cart_random[0xB] = 0x04; // 0x1 in Final Fantasy X (CN), 
+	resp->cart_random[0xB] = 0x04; // 0x1 in Final Fantasy X (JPN/CN), 
 								   // 0x1 in Dungeon Travelers 2 (JPN), 
 								   // 0x1 in Diabolik Lovers (JPN), 
 								   // 0x1 in Sen No Kieski 2 (JPN),
 								   // 0x1 in Sen No Kieski (JPN),
-								   // 0x3 in Superdimension Neptune vs Sega Hard Girls (PAL), 
+								   // 0x3 in Superdimension Neptune vs Sega Hard Girls (USA), 
 								   // 0x4 in Smart As (PAL),
 								   // 0x4 in Hyperdevotion Noire (PAL)
 									
-	resp->cart_random[0xC] = 0x00; // 0x0 in everything except:
+	resp->cart_random[0xC] = 0x00; // 0x0 in all except:
 								   // Minecraft PSVita (JPN) where its 0x1.
 								   // Diabolik Lovers(JPN) where its 0x2.
 
