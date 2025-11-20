@@ -32,7 +32,7 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 	cmd56_response_start(request, response);
 	get_response(generate_session_key_response);
 
-	resp->unk = endian_swap(0xE000);
+	resp->unk0 = endian_swap(0xE000);
 
 	// specify key_id
 	LOG("(GC) Key ID %x\n", state->key_id);
@@ -45,8 +45,8 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 	// this is just included incase they decide to do something with them in a later firmware..
 	// also seems to be a bug where only half of the CART_RANDDOM is actually random, its weird
 
-	resp->unk2 = endian_swap(0x2);
-	resp->unk3 = endian_swap(0x3);
+	resp->unk1 = endian_swap(0x2);
+	resp->unk2 = endian_swap(0x3);
 
 	rand_bytes(resp->cart_random, sizeof(resp->cart_random));
 
@@ -100,11 +100,11 @@ void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request
 	if (endian_swap(req->key_id) == state->key_id) {
 		LOG("(GC) got_key_id == state->key_id\n");
 
-		memcpy(state->shared_random.vita_part, req->shared_vita_part, sizeof(req->shared_vita_part));
+		memcpy(state->shared_random.vita_part, req->shared_rand_vita, sizeof(req->shared_rand_vita));
 		or_w_80(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 
 		LOG("(GC) read vita portion of the shared random: ");
-		LOG_BUFFER(req->shared_vita_part, sizeof(req->shared_vita_part));
+		LOG_BUFFER(req->shared_rand_vita, sizeof(req->shared_rand_vita));
 
 		// gamecart decides the lower portion of shared random ...
 		rand_bytes_or_w_80(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
@@ -113,8 +113,8 @@ void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request
 		LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
 
 		// this is sent back to the console in reverse order ...
-		memcpy(resp->shared_cart_part, state->shared_random.cart_part, sizeof(resp->shared_cart_part));
-		memcpy(resp->shared_vita_part, state->shared_random.vita_part, sizeof(resp->shared_vita_part));
+		memcpy(resp->shared_rand_cart, state->shared_random.cart_part, sizeof(resp->shared_rand_cart));
+		memcpy(resp->shared_rand_vita, state->shared_random.vita_part, sizeof(resp->shared_rand_vita));
 
 		LOG("(GC) handle_shared_random plaintext: ");
 		LOG_BUFFER(resp, sizeof(exchange_shared_random_response));
@@ -129,11 +129,11 @@ void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request
 
 }
 
-void handle_secondary_key_and_verify_session(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+void handle_exchange_secondary_key_and_verify_session(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 	get_request(exchange_secondary_key_and_verify_session_request);
 
-	// decrypt 0x30 bytes of the request ...
+	// decrypt the request ...
 	LOG("(GC) encrypted request buffer: ");
 	LOG_BUFFER(req, sizeof(exchange_secondary_key_and_verify_session_request));
 
@@ -309,7 +309,7 @@ void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_respons
 			handle_exchange_shared_random(state, request, request_response);
 			break;
 		case CMD_EXCHANGE_SECONDARY_KEY_AND_VERIFY_SESSION: // packet9, packet10
-			handle_secondary_key_and_verify_session(state, request, request_response);
+			handle_exchange_secondary_key_and_verify_session(state, request, request_response);
 			break;
 			
 		// packet11, packet12 -> CMD_GET_STATUS again

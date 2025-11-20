@@ -70,8 +70,8 @@ typedef PACK(struct shared_random {
 */
 
 typedef PACK(struct exchange_shared_random_request {
-    uint16_t key_id;
-    uint8_t shared_vita_part[0x10];
+    uint16_t key_id; //!< big endian
+    uint8_t shared_rand_vita[0x10];
 }) exchange_shared_random_request;
 
 typedef PACK(struct exchange_secondary_key_and_verify_session_request {
@@ -85,7 +85,7 @@ typedef PACK(struct verify_secondary_key_request {
 
 typedef PACK(struct get_p18_key_and_cmac_signature_request {
     uint8_t challenge_bytes[0x10];
-    uint8_t pad[0xF]; // !< 0x00
+    uint8_t pad0[0xF]; // !< 0x00
     uint8_t type; // 0x2 or 0x3
     uint8_t cmac_signature[0x10];
 }) get_p18_key_and_cmac_signature_request;
@@ -108,23 +108,23 @@ typedef PACK(struct get_status_response {
 }) get_status_response;
 
 typedef PACK(struct generate_session_key_response {
-    uint16_t unk; //<! 0xE0
-    uint16_t key_id; //<! endian swapped !
-    uint16_t unk2; //<! 0x200
-    uint16_t unk3; //<! 0x300
+    uint16_t unk0; //<! 0xE000
+    uint16_t key_id; //<! big endian
+    uint16_t unk1; //<! 0x200
+    uint16_t unk2; //<! 0x300
     uint8_t cart_random[0x20];
 }) generate_session_key_response;
 
 typedef PACK(struct exchange_shared_random_response {
-    uint8_t shared_cart_part[0x10];
-    uint8_t shared_vita_part[0x10];
+    uint8_t shared_rand_cart[0x10];
+    uint8_t shared_rand_vita[0x10];
 }) exchange_shared_random_response;
 
 typedef PACK(struct verify_secondary_key_response {
-    uint8_t pad[0x8]; // rng
+    uint8_t pad0[0x8]; // rng
     uint8_t challenge_bytes[0x10];
     uint8_t cart_random[0x20];
-    uint8_t pad2[0x8]; // rng
+    uint8_t pad1[0x8]; // rng
 }) verify_secondary_key_response;
 
 typedef PACK(struct get_p18_key_and_cmac_signature_response {
@@ -134,10 +134,10 @@ typedef PACK(struct get_p18_key_and_cmac_signature_response {
 }) get_p18_key_and_cmac_signature_response;
 
 typedef PACK(struct get_p20_key_and_cmac_signature_response {
-    uint8_t pad[8]; // rng
+    uint8_t pad0[0x8]; // rng
     uint8_t challenge_bytes[0x10];
     uint8_t p20_key[0x20];
-    uint8_t pad2[0x8]; // rng
+    uint8_t pad1[0x8]; // rng
     uint8_t cmac_signature[0x10];
 }) get_p20_key_and_cmac_signature_response;
 

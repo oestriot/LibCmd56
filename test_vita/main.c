@@ -102,7 +102,7 @@ void gc_recv(uint8_t* buf, uint32_t size) {
 }
 
 int ksceSblGcAuthMgrGcAuthCartAuthentication_Patched(uint16_t key_id) {
-	ksceSblGcAuthMgrDrmBBGetCartSecret_Patched();
+	ksceSblGcAuthMgrDrmBBClearCartSecret_Patched();
 	ctx = ksceSdifGetSdContextPartValidateMmc(1);
 	LOG("key_id: %x\n", key_id);
 	if(ctx != NULL) {
@@ -119,7 +119,7 @@ int ksceSblGcAuthMgrGcAuthCartAuthentication_Patched(uint16_t key_id) {
 		}
 		else{
 			LOG("ret = 0x%x\n", ret);
-			ksceSblGcAuthMgrDrmBBGetCartSecret_Patched();
+			ksceSblGcAuthMgrDrmBBClearCartSecret_Patched();
 		}
 	}
 	return -1;
@@ -185,7 +185,7 @@ int module_start(SceSize argc, const void *args)
 		"SceSblGcAuthMgr",
 		0x1926B182, // SceSblGcAuthMgrDrmBBForDriver
 		0xBB451E83, // ksceSblGcAuthMgrDrmBBClearCartSecret	
-		ksceSblGcAuthMgrGcAuthCartAuthentication_Patched);
+		ksceSblGcAuthMgrDrmBBClearCartSecret_Patched);
 	LOG("[started] %x %x\n", clearCartSecretHook, clearCartSecretHookRef);
 
 #endif

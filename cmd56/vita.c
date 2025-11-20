@@ -72,7 +72,7 @@ vita_error_code get_session_key(vita_cmd56_state* state, cmd56_request* request,
 	return GC_AUTH_RETURN_STATUS;
 }
 
-vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+vita_error_code exchange_shared_random(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_request_start(request, CMD_EXCHANGE_SHARED_RANDOM, calc_size(exchange_shared_random_request), calc_size(exchange_shared_random_response), 0x3);
 	get_request(exchange_shared_random_request);
 
@@ -81,11 +81,11 @@ vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* r
 	req->key_id = endian_swap(state->key_id);
 	
 	// randomize vita portion of shared random
-	rand_bytes(req->shared_vita_part, sizeof(req->shared_vita_part));
-	memcpy(state->shared_random.vita_part, req->shared_vita_part, sizeof(state->shared_random.vita_part));
+	rand_bytes(req->shared_rand_vita, sizeof(req->shared_rand_vita));
+	memcpy(state->shared_random.vita_part, req->shared_rand_vita, sizeof(state->shared_random.vita_part));
 
 	LOG("(VITA) vita portion of the shared random: ");
-	LOG_BUFFER(req->shared_vita_part, sizeof(req->shared_vita_part));
+	LOG_BUFFER(req->shared_rand_vita, sizeof(req->shared_rand_vita));
 
 	LOG("(VITA) verify_shared_random (request): ");
 	LOG_BUFFER(req, sizeof(exchange_shared_random_request));
@@ -99,11 +99,11 @@ vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* r
 		LOG("(VITA) verify_shared_random (response) plaintext: ");
 		LOG_BUFFER(resp, sizeof(exchange_shared_random_response));
 
-		if (memcmp(resp->shared_vita_part + 0x1, state->shared_random.vita_part + 0x1, sizeof(state->shared_random.vita_part)-0x1) == 0) {
+		if (memcmp(resp->shared_rand_vita + 0x1, state->shared_random.vita_part + 0x1, sizeof(state->shared_random.vita_part)-0x1) == 0) {
 			LOG("(VITA) cart and vita have the same shared_random.vita_part ...\n");
 			
 			// copy cart part into global state shared_random
-			memcpy(state->shared_random.cart_part, resp->shared_cart_part, sizeof(resp->shared_cart_part));
+			memcpy(state->shared_random.cart_part, resp->shared_rand_cart, sizeof(resp->shared_rand_cart));
 
 			LOG("(VITA) shared random, cart part: ");
 			LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
@@ -115,9 +115,9 @@ vita_error_code generate_shared_random(vita_cmd56_state* state, cmd56_request* r
 		}
 		else {
 			LOG("(VITA) invalid shared_random.vita_part! got: ");
-			LOG_BUFFER(resp->shared_vita_part, sizeof(resp->shared_vita_part));
+			LOG_BUFFER(resp->shared_rand_vita, sizeof(resp->shared_rand_vita));
 			LOG("(VITA) expected: ");
-			LOG_BUFFER(req->shared_vita_part, sizeof(req->shared_vita_part));
+			LOG_BUFFER(req->shared_rand_vita, sizeof(req->shared_rand_vita));
 
 			return GC_AUTH_ERROR_VERIFY_SHARED_RANDOM_INVALID;
 		}
@@ -175,12 +175,13 @@ vita_error_code verify_secondary_key(vita_cmd56_state* state, cmd56_request* req
 	send_packet(state, request, response);
 	get_response(verify_secondary_key_response);
 
-	// decrypt challenge response ...
+	// decrypt response ...
 	decrypt_cbc_zero_iv(&state->secondary_key, resp, sizeof(verify_secondary_key_response));
 	LOG("(VITA) decrypted secondary_key challenge: ");
 	LOG_BUFFER(resp, sizeof(verify_secondary_key_response));
-	
-	if (memcmp(resp->challenge_bytes+0x1, req->challenge_bytes+0x1, sizeof(resp->challenge_bytes) - 1) == 0) { // for some reason, the first byte doesnt have to match.
+
+	// replicate off-by-one bug in the vita kernel when comparing challenge bytes
+	if (memcmp(resp->challenge_bytes+0x1, req->challenge_bytes+0x1, sizeof(resp->challenge_bytes) - 1) == 0) { 
 		LOG("(VITA) decrypted secondary_key challenge matches !\n");
 
 		if (memcmp(resp->cart_random, state->cart_random, sizeof(state->cart_random)) == 0) {
@@ -216,7 +217,7 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 	rand_bytes_or_w_80(expected_challenge, sizeof(expected_challenge));
 	
 	memcpy(req->challenge_bytes, expected_challenge, sizeof(expected_challenge));
-	memset(req->pad, 0x00, sizeof(req->pad));
+	memset(req->pad0, 0x00, sizeof(req->pad0));
 	
 	// i dont know what this is for, its just all that changes between the two calls to it, 
 	// honestly i dont know why this is command is issued twice;
@@ -298,7 +299,7 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 vita_error_code get_packet20_key(vita_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_request_start(request, CMD_GET_P20_KEY_AND_CMAC_SIGNATURE, calc_size(get_p20_key_and_cmac_signature_request), calc_size(get_p20_key_and_cmac_signature_response), 0x19);
 	get_request(get_p20_key_and_cmac_signature_request);
-	rand_bytes_or_w_80(req->challenge_bytes, 0x10);
+	rand_bytes_or_w_80(req->challenge_bytes, sizeof(req->challenge_bytes));
 
 	LOG("(VITA) p20 request: ");
 	LOG_BUFFER(req, sizeof(get_p20_key_and_cmac_signature_request));
@@ -406,7 +407,7 @@ int vita_cmd56_run(vita_cmd56_state* state) {
 	if (state->lock_status != GC_LOCKED) return GC_AUTH_ERROR_UNLOCKED; // error if is not locked
 
 	check_success(get_session_key(state, &request, &response)); // get cart random, and keyid 
-	check_success(generate_shared_random(state, &request, &response)); // send vita portion of shared random and receive gc portion.
+	check_success(exchange_shared_random(state, &request, &response)); // send vita portion of shared random and receive gc portion.
 	check_success(generate_secondary_key_and_verify_session(state, &request, &response)); // generate vita authenticity proof
 
 	check_success(get_status(state, &request, &response)); // check is unlocked
