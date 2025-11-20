@@ -99,11 +99,6 @@ void rand_bytes(void* buf, size_t size) {
 	memset(buf, 0xAA, size);
 	return;
 #else
-
-
-	// seed the rng, based on a varity of factors
-	rand_seed(&buf, sizeof(uintptr_t));	// seed on address location (ala; aslr)
-
 	for (int i = 0; i < size; i += sizeof(rand_state)) {
 		// determine copy size 
 		size_t copy_size = ((size - i) < sizeof(rand_state)) ? (size - i) : sizeof(rand_state);

@@ -62,10 +62,18 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 	resp->cart_random[0x8] = 0x00;
 	resp->cart_random[0x9] = 0x00;
 	resp->cart_random[0xA] = 0x00;
-	resp->cart_random[0xB] = 0x04; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
-								   // 0x4 in Smart As,
-								   // (possibly: 0x3 on 4GB gc, and 0x4 on 2GB gc? needs more testing.)
-	resp->cart_random[0xC] = 0x00;
+	resp->cart_random[0xB] = 0x04; // 0x1 in Final Fantasy X (CN), 
+								   // 0x1 in Dungeon Travelers 2 (JPN), 
+								   // 0x1 in Diabolik Lovers (JPN), 
+								   // 0x1 in Sen No Kieski 2 (JPN),
+								   // 0x1 in Sen No Kieski (JPN),
+								   // 0x3 in Superdimension Neptune vs Sega Hard Girls (PAL), 
+								   // 0x4 in Smart As (PAL),
+								   // 0x4 in Hyperdevotion Noire (PAL)
+									
+	resp->cart_random[0xC] = 0x00; // 0x0 in everything except:
+								   // Minecraft PSVita (JPN) where its 0x1.
+								   // Diabolik Lovers(JPN) where its 0x2.
 
 	memcpy(state->cart_random, resp->cart_random, sizeof(state->cart_random));
 
