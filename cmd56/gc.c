@@ -63,8 +63,8 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 	resp->cart_random[0x9] = 0x00;
 	resp->cart_random[0xA] = 0x00;
 	resp->cart_random[0xB] = 0x04; // 0x3 in Superdimension Neptune vs Sega Hard Girls, 
-	// 0x4 in Smart As,
-	// (possibly: 0x3 on 4GB gc, and 0x4 on 2GB gc? needs more testing.)
+								   // 0x4 in Smart As,
+								   // (possibly: 0x3 on 4GB gc, and 0x4 on 2GB gc? needs more testing.)
 	resp->cart_random[0xC] = 0x00;
 
 	memcpy(state->cart_random, resp->cart_random, sizeof(state->cart_random));
