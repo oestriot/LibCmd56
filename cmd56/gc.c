@@ -30,26 +30,29 @@ void handle_secondary_key_and_verify_session(gc_cmd56_state* state, cmd56_reques
 	cmd56_response_start(request, response);
 
 	// decrypt 0x30 bytes of the request ...
+	LOG("(GC) encrypted request buffer: ");
+	LOG_BUFFER(request->data, 0x30);
+
 	decrypt_cbc_zero_iv(&state->session_key, request->data, 0x30);
 	uint8_t* secondary_key_buf = request->data;
 
 	// log everything
-	LOG("(GC) decrypted secondary_key buffer: ");
-	LOG_BUFFER(secondary_key_buf, 0x30);
+	LOG("(GC) decrypted request buffer: ");
+	LOG_BUFFER(request->data, 0x30);
 
 	LOG("(GC) secondary_key: ");
 	uint8_t* got_secondary_key = secondary_key_buf + 0x00;
 	LOG_BUFFER(got_secondary_key, 0x10);
-	
-	uint8_t* got_challenge = secondary_key_buf + 0x10;
+	AES_init_ctx(&state->secondary_key, got_secondary_key);
+
+	uint8_t* got_challenge = request->data + 0x10;
 	LOG("(GC) got_challenge: ");
 	LOG_BUFFER(got_challenge, 0x20);
 
-	AES_init_ctx(&state->secondary_key, got_secondary_key);
 
 	// calculate challenge bytes ...
 	uint8_t exp_challenge[0x20];
-	memcpy(exp_challenge, &state->shared_random, sizeof(shared_value));
+	memcpy(exp_challenge, &state->shared_random, sizeof(shared_random));
 	or_w_80(exp_challenge, 0x20);
 
 	if (memcmp(exp_challenge, got_challenge, 0x20) == 0) {
@@ -70,7 +73,7 @@ void handle_secondary_key_and_verify_session(gc_cmd56_state* state, cmd56_reques
 	}
 }
 
-void handle_generate_random_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
+void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 
 	response->data[0x0] = 0xE0;
@@ -255,26 +258,25 @@ void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request
 
 		// gamecart decides the lower portion of vita random ...
 		rand_bytes(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
-		or_w_80(&state->shared_random, 0x20);
+		or_w_80(&state->shared_random, sizeof(state->shared_random));
 
 		LOG("(GC) generated gc portion of the shared random: ");
 		LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
 
 		// this is sent back to the console in reverse order ...
 		memcpy(response->data + 0x00, state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
-		memcpy(response->data + 0x10, state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
-		
+		memcpy(response->data + 0x10, state->shared_random.vita_part, sizeof(state->shared_random.vita_part));		
 
 		LOG("(GC) handle_shared_random plaintext: ");
-		LOG_BUFFER(response->data, sizeof(shared_value));
+		LOG_BUFFER(response->data, sizeof(shared_random));
 
 		encrypt_cbc_zero_iv(&state->session_key, response->data, 0x20);
-
 		LOG("(GC) handle_shared_random ciphertext: ");
 		LOG_BUFFER(response->data, 0x20);
 	}
 	else {
 		LOG("(GC) key_id from vita not acknowledged? (got: 0x%02X, expected: 0x%02X)\n", got_key_id, state->key_id);
+		ABORT();
 		cmd56_response_error(response, 0x11);
 	}
 
@@ -296,7 +298,7 @@ void handle_request(gc_cmd56_state* state, cmd56_request* request, cmd56_respons
 			handle_cmd_status(state, request, request_response);
 			break;
 		case CMD_GENERATE_SESSION_KEY: // packet5, packet6
-			handle_generate_random_key(state, request, request_response);
+			handle_generate_session_key(state, request, request_response);
 			break;
 		case CMD_EXCHANGE_SHARED_RANDOM: // packet7, packet8
 			handle_exchange_shared_random(state, request, request_response);

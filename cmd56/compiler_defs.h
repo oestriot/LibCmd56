@@ -6,6 +6,15 @@
 #ifndef COMPILER_DEFS_H
 #define COMPILER_DEFS_H 1
 
+
+#if defined(_DEBUG) && defined(_MSC_VER)
+#define ABORT() abort();
+#elif defined(_DEBUG)
+#define ABORT() *(uint8_t*)0 = 0;
+#else
+#define ABORT() /**/
+#endif
+
 #ifdef __GNUC__
 #define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
 #endif
@@ -93,5 +102,7 @@ static inline int __impl_memcmp(void const* a, void const* b, size_t len) {
 #define memset __impl_memset
 #define memcpy __impl_memcpy
 #define memcmp __impl_memcmp
+
+#define offsetof(st, m) ((size_t)&(((st*)0)->m))
 
 #endif

@@ -52,7 +52,8 @@ void derive_session_key(uint8_t* session_key_out, uint8_t* cart_random, int key_
 			keyseed = GCAUTHMGR_0x1_KEY;
 			break;
 		default:
-			LOG("invalid key id passed to derive_session_key 0x%x\n", key_id);
+			LOG("(F00D) invalid key id passed to derive_session_key 0x%x\n", key_id);
+			ABORT();
 			return;
 	}
 
@@ -64,7 +65,7 @@ void derive_session_key(uint8_t* session_key_out, uint8_t* cart_random, int key_
 	if (key_id == 0x1) {
 		AES_CBC_decrypt_buffer_key(BIGMAC_KEY_0x348, session_key_out, 0x10, GCAUTHMGR_0x1_IV);
 
-		LOG("(F00D) CBC_DEC session_key_out: ");
+		LOG("(F00D) session_key: ");
 		LOG_BUFFER(session_key_out, 0x10);
 	}
 
