@@ -217,7 +217,6 @@ int module_start(SceSize argc, const void *args)
 		0x22FD5D23, // ksceSblGcAuthMgrDrmBBCheckCartHash	
 		ksceSblGcAuthMgrDrmBBCheckCartHash_Patched);
 	LOG("[started] %x %x\n", checkCartHashHook, checkCartHashHookRef);
-
 	
 
 #endif
