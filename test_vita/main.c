@@ -3,6 +3,7 @@
 #include <vitasdkkern.h>
 #include <taihen.h>
 
+#include "sha1.h"
 #include "sha256.h"
 #include "../cmd56/gc.h"
 #include "../cmd56/vita.h"
@@ -66,6 +67,27 @@ static tai_hook_ref_t getCartSecretHookRef;
 static int clearCartSecretHook = -1;
 static tai_hook_ref_t clearCartSecretHookRef;
 
+static int checkCartHashHook = -1;
+static tai_hook_ref_t checkCartHashHookRef;
+
+int ksceSblGcAuthMgrDrmBBCheckCartHash_Patched(const uint8_t* secret) {
+	uint8_t cart_hash[0x14];
+	LOG("ksceSblGcAuthMgrDrmBBGetCartSecret\n");
+	
+	SHA1_CTX ctx;
+	sha1_init(&ctx);
+	sha1_update(&ctx, vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));
+	sha1_final(&ctx, cart_hash);
+	
+	LOG("input cart_hash: ");
+	LOG_BUFFER(secret, sizeof(cart_hash));
+
+	LOG("got cart_hash: ");
+	LOG_BUFFER(cart_hash, sizeof(cart_hash));
+	
+	return memcmp(secret, cart_hash, sizeof(cart_hash));	
+}
+
 int ksceSblGcAuthMgrDrmBBGetCartSecret_Patched(uint8_t* secret) {
 	LOG("ksceSblGcAuthMgrDrmBBGetCartSecret\n");
 	
@@ -75,7 +97,7 @@ int ksceSblGcAuthMgrDrmBBGetCartSecret_Patched(uint8_t* secret) {
 	sha256_final(&ctx, secret);
 	
 	LOG("cart_secret: ");
-	LOG_BUFFER(secret, 0x20);
+	LOG_BUFFER(secret, sizeof(cmd56_keys));
 	
 	return 0;
 }
@@ -187,6 +209,16 @@ int module_start(SceSize argc, const void *args)
 		0xBB451E83, // ksceSblGcAuthMgrDrmBBClearCartSecret	
 		ksceSblGcAuthMgrDrmBBClearCartSecret_Patched);
 	LOG("[started] %x %x\n", clearCartSecretHook, clearCartSecretHookRef);
+	
+	checkCartHashHook = taiHookFunctionExportForKernel(KERNEL_PID,
+		&checkCartHashHookRef, 
+		"SceSblGcAuthMgr",
+		0x1926B182, // SceSblGcAuthMgrDrmBBForDriver
+		0x22FD5D23, // ksceSblGcAuthMgrDrmBBCheckCartHash	
+		ksceSblGcAuthMgrDrmBBCheckCartHash_Patched);
+	LOG("[started] %x %x\n", checkCartHashHook, checkCartHashHookRef);
+
+	
 
 #endif
 
@@ -197,12 +229,15 @@ int module_stop(SceSize argc, const void *args)
 {
 	
 #ifdef VERIFY_GC_C	
-	if (recvHook >= 0)			taiHookReleaseForKernel(recvHook, recvHookRef);
-	if (sendHook >= 0)			taiHookReleaseForKernel(sendHook, sendHookRef);
-	if (kernelGetSysTime >= 0)  taiHookReleaseForKernel(kernelGetSysTime, kernelGetSysTimeRef);
-#endif 
-#ifdef VERIFY_GC_C
-	if (authHook >= 0)			taiHookReleaseForKernel(authHook, authHookRef);
+	if (recvHook >= 0)			  taiHookReleaseForKernel(recvHook, recvHookRef);
+	if (sendHook >= 0)			  taiHookReleaseForKernel(sendHook, sendHookRef);
+	if (kernelGetSysTime >= 0)    taiHookReleaseForKernel(kernelGetSysTime, kernelGetSysTimeRef);
+#endif
+#ifdef VERIFY_VITA_C
+	if (authHook >= 0)			  taiHookReleaseForKernel(authHook, authHookRef);
+	if (getCartSecretHook >= 0)	  taiHookReleaseForKernel(getCartSecretHook, getCartSecretHookRef);
+	if (clearCartSecretHook >= 0) taiHookReleaseForKernel(clearCartSecretHook, clearCartSecretHookRef);
+	if (checkCartHashHook >= 0)	  taiHookReleaseForKernel(checkCartHashHook, checkCartHashHookRef);
 #endif
 		
 	return SCE_KERNEL_STOP_SUCCESS;

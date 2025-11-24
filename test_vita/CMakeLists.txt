@@ -18,6 +18,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
 add_executable(GcAuthMgrEmu
   main.c
   sha256.c
+  sha1.c
   ../cmd56/cmd56.c
   ../cmd56/cmd56_sm.c
   ../cmd56/gc.c

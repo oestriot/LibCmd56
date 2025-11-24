@@ -96,7 +96,7 @@ typedef PACK(struct get_p20_key_and_cmac_signature_request {
 
 
 /*
-*   COMMAND RESPONSES 
+*   COMMAND RESPONSES
 */
 
 typedef PACK(struct start_response {
@@ -143,7 +143,6 @@ typedef PACK(struct get_p20_key_and_cmac_signature_response {
 
 void cmd56_response_start(cmd56_request* packet_buffer, cmd56_response* response);
 void cmd56_response_error(cmd56_response* response, uint8_t error);
-
 void cmd56_request_start(cmd56_request* request, cmd56_command cmd, uint8_t data_size, uint32_t expected_response_size, uint32_t expected_response_code);
 
 #endif /* CMD56_H */
