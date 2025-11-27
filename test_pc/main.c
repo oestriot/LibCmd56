@@ -21,35 +21,35 @@ static uint8_t GC_PACKET[0x200];
 
 void emu_send(char* buf, size_t size) {
 	memcpy(VITA_PACKET, buf, size);
-	LOG("(VITA -> GC): ");
-	LOG_BUFFER(VITA_PACKET, sizeof(VITA_PACKET));
+	PRINT_STR("(VITA -> GC): ");
+	PRINT_BUFFER_LEN(VITA_PACKET, sizeof(VITA_PACKET));
 }
 
 void emu_recv(char* buf, size_t size) {
 	gc_cmd56_run(&gc_state, VITA_PACKET, GC_PACKET);
 	memcpy(buf, GC_PACKET, size);
-	LOG("(GC -> VITA): ");
-	LOG_BUFFER(GC_PACKET, sizeof(GC_PACKET));
+	PRINT_STR("(GC -> VITA): ");
+	PRINT_BUFFER_LEN(GC_PACKET, sizeof(GC_PACKET));
 }
 
 int test_own_implementation() {
 	int res = vita_cmd56_run(&vita_state);
 	if (res != 0) {
-		LOG("\nAuthentication Failed!\n\n");
+		PRINT_STR("\nAuthentication Failed!\n\n");
 	}
 	else {
-		LOG("\nAuthentication Success!\n\n");
+		PRINT_STR("\nAuthentication Success!\n\n");
 	}
 
-	LOG("vita_state.per_cart_keys.packet18_key\n");
-	LOG_BUFFER(vita_state.per_cart_keys.packet18_key, sizeof(vita_state.per_cart_keys.packet18_key));
-	LOG("gc_state.per_cart_keys.packet18_key\n");
-	LOG_BUFFER(gc_state.per_cart_keys.packet18_key, sizeof(gc_state.per_cart_keys.packet18_key));
+	PRINT_STR("vita_state.per_cart_keys.packet18_key\n");
+	PRINT_BUFFER_LEN(vita_state.per_cart_keys.packet18_key, sizeof(vita_state.per_cart_keys.packet18_key));
+	PRINT_STR("gc_state.per_cart_keys.packet18_key\n");
+	PRINT_BUFFER_LEN(gc_state.per_cart_keys.packet18_key, sizeof(gc_state.per_cart_keys.packet18_key));
 
-	LOG("vita_state.per_cart_keys.packet20_key\n");
-	LOG_BUFFER(vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));
-	LOG("gc_state.per_cart_keys.packet20_key\n");
-	LOG_BUFFER(gc_state.per_cart_keys.packet20_key, sizeof(gc_state.per_cart_keys.packet20_key));
+	PRINT_STR("vita_state.per_cart_keys.packet20_key\n");
+	PRINT_BUFFER_LEN(vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));
+	PRINT_STR("gc_state.per_cart_keys.packet20_key\n");
+	PRINT_BUFFER_LEN(gc_state.per_cart_keys.packet20_key, sizeof(gc_state.per_cart_keys.packet20_key));
 	
 	return res;
 }

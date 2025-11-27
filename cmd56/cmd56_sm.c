@@ -52,21 +52,20 @@ void derive_session_key(uint8_t* session_key_out, uint8_t* cart_random, int key_
 			keyseed = GCAUTHMGR_0x1_KEY;
 			break;
 		default:
-			LOG("(F00D) invalid key id passed to derive_session_key 0x%x\n", key_id);
-			ABORT();
+			PRINT_STR("(F00D) invalid key id passed to derive_session_key 0x%x\n", key_id);
 			return;
 	}
 
 	AES_CMAC_buffer_key(keyseed, cart_random, 0x20, session_key_out);
 	
-	LOG("(F00D) CMAC session_key_out: ");
-	LOG_BUFFER(session_key_out, 0x10);
+	PRINT_STR("(F00D) CMAC session_key_out: ");
+	PRINT_BUFFER_LEN(session_key_out, 0x10);
 
 	if (key_id == 0x1) {
 		AES_CBC_decrypt_buffer_key(BIGMAC_KEY_0x348, session_key_out, 0x10, GCAUTHMGR_0x1_IV);
 
-		LOG("(F00D) session_key: ");
-		LOG_BUFFER(session_key_out, 0x10);
+		PRINT_STR("(F00D) session_key: ");
+		PRINT_BUFFER_LEN(session_key_out, 0x10);
 	}
 
 }
@@ -81,8 +80,8 @@ void do_cmd56_cmac_hash(AES_ctx* ctx, void* data, uint32_t header, uint8_t* outp
 
 	AES_CMAC_buffer(ctx, cmac_input, size + 0x10, output); // caclulate the CMAC ...
 
-	LOG("(CMD56) CMAC: ");
-	LOG_BUFFER(output, 0x10);
+	PRINT_STR("(CMD56) CMAC: ");
+	PRINT_BUFFER_LEN(output, 0x10);
 }
 
 // random number generator

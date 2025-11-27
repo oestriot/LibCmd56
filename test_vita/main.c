@@ -129,6 +129,8 @@ int ksceSblGcAuthMgrGcAuthCartAuthentication_Patched(uint16_t key_id) {
 	LOG("key_id: %x\n", key_id);
 	if(ctx != NULL) {
 		vita_cmd56_init(&vita_state, gc_send, gc_recv); // initalize VITA emu 
+		vita_state.allow_prototype_keys = 1;
+		
 		int ret = vita_cmd56_run(&vita_state);
 		
 		if(ret == GC_AUTH_OK) {
@@ -146,6 +148,7 @@ int ksceSblGcAuthMgrGcAuthCartAuthentication_Patched(uint16_t key_id) {
 	}
 	return -1;
 }
+
 
 #endif
 
@@ -217,8 +220,6 @@ int module_start(SceSize argc, const void *args)
 		0x22FD5D23, // ksceSblGcAuthMgrDrmBBCheckCartHash	
 		ksceSblGcAuthMgrDrmBBCheckCartHash_Patched);
 	LOG("[started] %x %x\n", checkCartHashHook, checkCartHashHookRef);
-	
-
 #endif
 
 	return SCE_KERNEL_START_SUCCESS;

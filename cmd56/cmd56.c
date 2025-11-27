@@ -14,7 +14,7 @@ void cmd56_request_start(cmd56_request* request, cmd56_command cmd, uint8_t addi
 	request->expected_response_size = expected_response_size;
 	request->additional_data_size = additional_data_size;
 	request->request_size = additional_data_size;
-	LOG("(CMD56) cmd56_request_start cmd=0x%x resp_code=0x%x\n", request->command, request->expected_response_code);
+	PRINT_STR("(CMD56) cmd56_request_start cmd=0x%x resp_code=0x%x\n", request->command, request->expected_response_code);
 }
 
 void cmd56_response_start(cmd56_request* request_buffer, cmd56_response* response) {
@@ -32,5 +32,5 @@ void cmd56_response_error(cmd56_response* response, uint8_t error) {
 	uint16_t size = endian_swap((uint16_t)response->response_size);
 	memset(response->data, 0xFF, size);
 	
-	LOG("(CMD56) cmd56_response_error error_code=0x%x\n", response->error_code);
+	PRINT_STR("(CMD56) cmd56_response_error error_code=0x%x\n", response->error_code);
 }

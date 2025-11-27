@@ -7,14 +7,6 @@
 #define COMPILER_DEFS_H 1
 
 
-#if defined(_DEBUG) && defined(_MSC_VER)
-#define ABORT() abort();
-#elif defined(_DEBUG)
-#define ABORT() *(uint8_t*)0 = 0;
-#else
-#define ABORT() /**/
-#endif
-
 #ifdef __GNUC__
 #define PACK( declaration ) declaration __attribute__((__packed__))
 #elif _MSC_VER

@@ -35,7 +35,7 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 	resp->unk0 = endian_swap(0xE000);
 
 	// specify key_id
-	LOG("(GC) Key ID %x\n", state->key_id);
+	PRINT_STR("(GC) Key ID %x\n", state->key_id);
 	resp->key_id = endian_swap(state->key_id);
 
 	// unknown paramaters, copied values from "Smart As."; they seem to be the same for most*
@@ -79,15 +79,15 @@ void handle_generate_session_key(gc_cmd56_state* state, cmd56_request* request, 
 
 	memcpy(state->cart_random, resp->cart_random, sizeof(state->cart_random));
 
-	LOG("(GC) cart_random: ");
-	LOG_BUFFER(state->cart_random, sizeof(state->cart_random));
+	PRINT_STR("(GC) cart_random: ");
+	PRINT_BUFFER_LEN(state->cart_random, sizeof(state->cart_random));
 
 	// generate session key
 	uint8_t session_key[0x10];
 	derive_session_key(session_key, state->cart_random, state->key_id);
 
-	LOG("(GC) session_key: ");
-	LOG_BUFFER(session_key, sizeof(session_key));
+	PRINT_STR("(GC) session_key: ");
+	PRINT_BUFFER_LEN(session_key, sizeof(session_key));
 
 	AES_init_ctx(&state->session_key, session_key);
 }
@@ -98,32 +98,31 @@ void handle_exchange_shared_random(gc_cmd56_state* state, cmd56_request* request
 	get_request(exchange_shared_random_request);
 
 	if (endian_swap(req->key_id) == state->key_id) {
-		LOG("(GC) got_key_id == state->key_id\n");
+		PRINT_STR("(GC) got_key_id == state->key_id\n");
 
 		memcpy(state->shared_random.vita_part, req->shared_rand_vita, sizeof(req->shared_rand_vita));
 		or_w_80(state->shared_random.vita_part, sizeof(state->shared_random.vita_part));
 
-		LOG("(GC) read vita portion of the shared random: ");
-		LOG_BUFFER(req->shared_rand_vita, sizeof(req->shared_rand_vita));
+		PRINT_STR("(GC) read vita portion of the shared random: ");
+		PRINT_BUFFER_LEN(req->shared_rand_vita, sizeof(req->shared_rand_vita));
 
 		// gamecart decides the lower portion of shared random ...
 		rand_bytes_or_w_80(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
 
-		LOG("(GC) generated gc portion of the shared random: ");
-		LOG_BUFFER(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
+		PRINT_STR("(GC) generated gc portion of the shared random: ");
+		PRINT_BUFFER_LEN(state->shared_random.cart_part, sizeof(state->shared_random.cart_part));
 
 		// this is sent back to the console in reverse order ...
 		memcpy(resp->shared_rand_cart, state->shared_random.cart_part, sizeof(resp->shared_rand_cart));
 		memcpy(resp->shared_rand_vita, state->shared_random.vita_part, sizeof(resp->shared_rand_vita));
 
-		LOG("(GC) handle_shared_random plaintext: ");
-		LOG_BUFFER(resp, sizeof(exchange_shared_random_response));
+		PRINT_STR("(GC) handle_shared_random plaintext: ");
+		PRINT_BUFFER_LEN(resp, sizeof(exchange_shared_random_response));
 
 		encrypt_cbc_zero_iv(&state->session_key, resp, sizeof(exchange_shared_random_response));
 	}
 	else {
-		LOG("(GC) key_id from vita not acknowledged? (got: 0x%02X, expected: 0x%02X)\n", endian_swap(req->key_id), state->key_id);
-		ABORT();
+		PRINT_STR("(GC) key_id from vita not acknowledged? (got: 0x%02X, expected: 0x%02X)\n", endian_swap(req->key_id), state->key_id);
 		cmd56_response_error(response, 0x11);
 	}
 
@@ -134,34 +133,34 @@ void handle_exchange_secondary_key_and_verify_session(gc_cmd56_state* state, cmd
 	get_request(exchange_secondary_key_and_verify_session_request);
 
 	// decrypt the request ...
-	LOG("(GC) encrypted request buffer: ");
-	LOG_BUFFER(req, sizeof(exchange_secondary_key_and_verify_session_request));
+	PRINT_STR("(GC) encrypted request buffer: ");
+	PRINT_BUFFER_LEN(req, sizeof(exchange_secondary_key_and_verify_session_request));
 
 	decrypt_cbc_zero_iv(&state->session_key, req, sizeof(exchange_secondary_key_and_verify_session_request));
 
 	// log everything
-	LOG("(GC) decrypted request buffer: ");
-	LOG_BUFFER(req, sizeof(exchange_secondary_key_and_verify_session_request));
+	PRINT_STR("(GC) decrypted request buffer: ");
+	PRINT_BUFFER_LEN(req, sizeof(exchange_secondary_key_and_verify_session_request));
 
-	LOG("(GC) got_challenge: ");
-	LOG_BUFFER(&req->challenge_bytes, sizeof(req->challenge_bytes));
+	PRINT_STR("(GC) got_challenge: ");
+	PRINT_BUFFER_LEN(&req->challenge_bytes, sizeof(req->challenge_bytes));
 
-	LOG("(GC) secondary_key: ");
-	LOG_BUFFER(req->secondary_key, sizeof(req->secondary_key));
+	PRINT_STR("(GC) secondary_key: ");
+	PRINT_BUFFER_LEN(req->secondary_key, sizeof(req->secondary_key));
 	AES_init_ctx(&state->secondary_key, req->secondary_key);
 
 	if (memcmp(&req->challenge_bytes, &state->shared_random, sizeof(shared_random)) == 0) {
-		LOG("(GC) session key validated, unlocking cart\n");
+		PRINT_STR("(GC) session key validated, unlocking cart\n");
 		state->lock_status = GC_UNLOCKED;
 	}
 	else {
-		LOG("(GC) session key not valid, cart remaining locked.\n");
+		PRINT_STR("(GC) session key not valid, cart remaining locked.\n");
 
-		LOG("(GC) expected: ");
-		LOG_BUFFER(&state->shared_random, sizeof(shared_random));
+		PRINT_STR("(GC) expected: ");
+		PRINT_BUFFER_LEN(&state->shared_random, sizeof(shared_random));
 
-		LOG("(GC) got: ");
-		LOG_BUFFER(&req->challenge_bytes, sizeof(shared_random));
+		PRINT_STR("(GC) got: ");
+		PRINT_BUFFER_LEN(&req->challenge_bytes, sizeof(shared_random));
 
 		state->lock_status = GC_LOCKED;
 		cmd56_response_error(response, 0xF1);
@@ -180,14 +179,14 @@ void handle_verify_secondary_key(gc_cmd56_state* state, cmd56_request* request, 
 	memcpy(resp->challenge_bytes, req->challenge_bytes, sizeof(req->challenge_bytes));
 	or_w_80(resp->challenge_bytes, sizeof(resp->challenge_bytes));
 
-	LOG("(GC) Got challenge bytes: ");
-	LOG_BUFFER(resp->challenge_bytes, sizeof(resp->challenge_bytes));
+	PRINT_STR("(GC) Got challenge bytes: ");
+	PRINT_BUFFER_LEN(resp->challenge_bytes, sizeof(resp->challenge_bytes));
 
 	// copy cart random
 	memcpy(resp->cart_random, state->cart_random, sizeof(state->cart_random));
 
-	LOG("(GC) Plaintext verify_secondary_key response: ");
-	LOG_BUFFER(resp, sizeof(verify_secondary_key_response));
+	PRINT_STR("(GC) Plaintext verify_secondary_key response: ");
+	PRINT_BUFFER_LEN(resp, sizeof(verify_secondary_key_response));
 
 	encrypt_cbc_zero_iv(&state->secondary_key, response->data, 0x40);
 }
@@ -208,30 +207,30 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 						offsetof(get_p18_key_and_cmac_signature_request, cmac_signature));
 
 	if (memcmp(got_cmac, req->cmac_signature, sizeof(got_cmac)) == 0) {
-		LOG("(GC) p18 cmac validated success\n");
+		PRINT_STR("(GC) p18 cmac validated success\n");
 		decrypt_cbc_zero_iv(&state->secondary_key, req, offsetof(get_p18_key_and_cmac_signature_request, cmac_signature));
 
 		// check type really is 0x2 or 0x3, 
 		// and that the challenge value is or'd by 0x80 ...
 		if ((req->type != 0x2 || req->type != 0x3) &&
 			(req->challenge_bytes[0x00] | 0x80) != req->challenge_bytes[0x00]) {
-			LOG("(GC) invalid p18 request, 0x1F is not 0x2 or 0x3, OR challenge_bytes[0] is not logical or'd with 0x80.\n");
+			PRINT_STR("(GC) invalid p18 request, 0x1F is not 0x2 or 0x3, OR challenge_bytes[0] is not logical or'd with 0x80.\n");
 			cmd56_response_error(response, 0x11);
 			return;
 		}
 	
-		LOG("(GC) decrypted p18 request buffer: ");
-		LOG_BUFFER(req, sizeof(get_p18_key_and_cmac_signature_request));
+		PRINT_STR("(GC) decrypted p18 request buffer: ");
+		PRINT_BUFFER_LEN(req, sizeof(get_p18_key_and_cmac_signature_request));
 
 		// copy challange to response
 		memcpy(resp->challenge_bytes, req->challenge_bytes, sizeof(req->challenge_bytes));
-		LOG("(GC) response challenge_bytes: ");
-		LOG_BUFFER(resp->p18_key, sizeof(resp->p18_key));
+		PRINT_STR("(GC) response challenge_bytes: ");
+		PRINT_BUFFER_LEN(resp->p18_key, sizeof(resp->p18_key));
 
 		// copy request18 key
 		memcpy(resp->p18_key, state->per_cart_keys.packet18_key, sizeof(resp->p18_key));
-		LOG("(GC) p18_key: ");
-		LOG_BUFFER(resp->p18_key, sizeof(resp->p18_key));
+		PRINT_STR("(GC) p18_key: ");
+		PRINT_BUFFER_LEN(resp->p18_key, sizeof(resp->p18_key));
 
 		// encrypt buffer
 		encrypt_cbc_zero_iv(&state->secondary_key, resp, offsetof(get_p18_key_and_cmac_signature_response, cmac_signature));
@@ -244,11 +243,11 @@ void handle_p18key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 						    offsetof(get_p18_key_and_cmac_signature_response, cmac_signature));
 	}
 	else {
-		LOG("(GC) p18 cmac validation failed!!\n");
-		LOG("(GC) expected: ");
-		LOG_BUFFER(req->cmac_signature, sizeof(req->cmac_signature));
-		LOG("(GC) got:");
-		LOG_BUFFER(got_cmac, sizeof(got_cmac));
+		PRINT_STR("(GC) p18 cmac validation failed!!\n");
+		PRINT_STR("(GC) expected: ");
+		PRINT_BUFFER_LEN(req->cmac_signature, sizeof(req->cmac_signature));
+		PRINT_STR("(GC) got:");
+		PRINT_BUFFER_LEN(got_cmac, sizeof(got_cmac));
 		cmd56_response_error(response, 0xF4);
 	}
 
@@ -266,15 +265,15 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 	memcpy(resp->challenge_bytes, req->challenge_bytes, sizeof(req->challenge_bytes));
 	or_w_80(resp->challenge_bytes, sizeof(resp->challenge_bytes));
 
-	LOG("(GC) p20_challenge_value: ");
-	LOG_BUFFER(resp->challenge_bytes, sizeof(resp->challenge_bytes));
+	PRINT_STR("(GC) p20_challenge_value: ");
+	PRINT_BUFFER_LEN(resp->challenge_bytes, sizeof(resp->challenge_bytes));
 
 	// copy p20 key
-	LOG("(GC) copying p20 key.\n");
+	PRINT_STR("(GC) copying p20 key.\n");
 	memcpy(resp->p20_key, state->per_cart_keys.packet20_key, sizeof(resp->p20_key));
 
-	LOG("(GC) p20 plaintext response: ");
-	LOG_BUFFER(resp, offsetof(get_p20_key_and_cmac_signature_response, cmac_signature));
+	PRINT_STR("(GC) p20 plaintext response: ");
+	PRINT_BUFFER_LEN(resp, offsetof(get_p20_key_and_cmac_signature_response, cmac_signature));
 
 	// encrypt buffer
 	encrypt_cbc_zero_iv(&state->secondary_key, resp, offsetof(get_p20_key_and_cmac_signature_response, cmac_signature));
@@ -289,7 +288,7 @@ void handle_p20key_and_cmac_signature(gc_cmd56_state* state, cmd56_request* requ
 
 
 void handle_unknown_request(gc_cmd56_state* state, cmd56_request* request, cmd56_response* response) {
-	LOG("(GC) Unknown command: 0x%02X\n", request->command);
+	PRINT_STR("(GC) Unknown command: 0x%02X\n", request->command);
 	cmd56_response_start(request, response);
 	cmd56_response_error(response, 0x11);
 }
