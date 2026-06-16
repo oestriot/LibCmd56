@@ -42,7 +42,7 @@ typedef enum vita_error_code {
     GC_AUTH_ERROR_REPORTED = 0x800F001
 } vita_error_code;
 
-typedef struct vita_cmd56_state {
+typedef PACK(struct vita_cmd56_state {
     // send/recv callbacks
     send_t send;
     recv_t recv;
@@ -79,7 +79,7 @@ typedef struct vita_cmd56_state {
 
     AES_ctx session_key;
     AES_ctx secondary_key;
-} vita_cmd56_state;
+}) vita_cmd56_state;
 
 // exposed functions:
 void vita_cmd56_init(vita_cmd56_state* state, send_t send_func, recv_t recv_func);

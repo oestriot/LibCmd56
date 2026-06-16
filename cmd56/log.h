@@ -9,7 +9,7 @@
 #include <string.h>
 #define PRINT_STR(...) printf(__VA_ARGS__)
 #define PRINT_BUFFER(buffer) PRINT_BUFFER_LEN(buffer, sizeof(buffer))
-#define PRINT_BUFFER_LEN(buffer, size) for(int i = 0; i < size; i++) { PRINT_STR("%02X ", ((unsigned char*)buffer)[i]); }; PRINT_STR("\n");
+#define PRINT_BUFFER_LEN(buffer, size) for(size_t i = 0; i < size; i++) { PRINT_STR("%02X ", ((unsigned char*)buffer)[i]); }; PRINT_STR("\n");
 #elif defined(_DEBUG) && defined(__vita__)
 #include <vitasdkkern.h>
 #define PRINT_STR(...) ksceKernelPrintf(__VA_ARGS__)

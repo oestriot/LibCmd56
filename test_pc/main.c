@@ -34,23 +34,43 @@ void emu_recv(char* buf, size_t size) {
 
 int test_own_implementation() {
 	int res = vita_cmd56_run(&vita_state);
+
+	PRINT_STR("======== DONE ========\n");
+
+	if (memcmp(keys.packet18_key, vita_state.per_cart_keys.packet18_key, sizeof(keys.packet18_key)) == 0) {
+		PRINT_STR("p18 output matches input, PASS\n");
+	}
+	else {
+		PRINT_STR("p18 output does not match input, FAIL\n");
+		res = -1;
+	}
+
+	if (memcmp(keys.packet20_key, vita_state.per_cart_keys.packet20_key, sizeof(keys.packet20_key)) == 0) {
+		PRINT_STR("p20 output matches input, PASS\n");
+	}
+	else {
+		PRINT_STR("p20 output does not match input, FAIL\n");
+		res = -1;
+	}
+
 	if (res != 0) {
 		PRINT_STR("\nAuthentication Failed!\n\n");
 	}
 	else {
 		PRINT_STR("\nAuthentication Success!\n\n");
+
+
+		PRINT_STR("vita_state.per_cart_keys.packet18_key\n");
+		PRINT_BUFFER_LEN(vita_state.per_cart_keys.packet18_key, sizeof(vita_state.per_cart_keys.packet18_key));
+		PRINT_STR("gc_state.per_cart_keys.packet18_key\n");
+		PRINT_BUFFER_LEN(gc_state.per_cart_keys.packet18_key, sizeof(gc_state.per_cart_keys.packet18_key));
+
+		PRINT_STR("vita_state.per_cart_keys.packet20_key\n");
+		PRINT_BUFFER_LEN(vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));
+		PRINT_STR("gc_state.per_cart_keys.packet20_key\n");
+		PRINT_BUFFER_LEN(gc_state.per_cart_keys.packet20_key, sizeof(gc_state.per_cart_keys.packet20_key));
 	}
 
-	PRINT_STR("vita_state.per_cart_keys.packet18_key\n");
-	PRINT_BUFFER_LEN(vita_state.per_cart_keys.packet18_key, sizeof(vita_state.per_cart_keys.packet18_key));
-	PRINT_STR("gc_state.per_cart_keys.packet18_key\n");
-	PRINT_BUFFER_LEN(gc_state.per_cart_keys.packet18_key, sizeof(gc_state.per_cart_keys.packet18_key));
-
-	PRINT_STR("vita_state.per_cart_keys.packet20_key\n");
-	PRINT_BUFFER_LEN(vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));
-	PRINT_STR("gc_state.per_cart_keys.packet20_key\n");
-	PRINT_BUFFER_LEN(gc_state.per_cart_keys.packet20_key, sizeof(gc_state.per_cart_keys.packet20_key));
-	
 	return res;
 }
 

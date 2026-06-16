@@ -273,7 +273,7 @@ vita_error_code get_packet18_key(vita_cmd56_state* state, cmd56_request* request
 				PRINT_STR("(VITA) p18 challenge success!\n");
 
 				memcpy(state->per_cart_keys.packet18_key, resp->p18_key, sizeof(state->per_cart_keys.packet18_key));
-				PRINT_STR("(VITA) state->per_cart_keys.packet18_key: ");
+				PRINT_STR("(VITA) p18_key: ");
 				PRINT_BUFFER_LEN(state->per_cart_keys.packet18_key, sizeof(state->per_cart_keys.packet18_key));
 
 				return GC_AUTH_OK;
@@ -335,7 +335,7 @@ vita_error_code get_packet20_key(vita_cmd56_state* state, cmd56_request* request
 				PRINT_STR("(VITA) p20 challenge matches!\n");
 
 				memcpy(state->per_cart_keys.packet20_key, resp->p20_key, sizeof(state->per_cart_keys.packet20_key));
-				PRINT_STR("(VITA) state->per_cart_keys.packet20_key: ");
+				PRINT_STR("(VITA) packet20_key: ");
 				PRINT_BUFFER_LEN(state->per_cart_keys.packet20_key, sizeof(state->per_cart_keys.packet20_key));
 
 				return GC_AUTH_OK;
