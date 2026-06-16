@@ -41,15 +41,15 @@ uint64_t sceKernelGetSystemTimeWide_Patched() {
 int ksceSdifWriteCmd56_Patched(void* instance, char* buffer, int bufferSz) {
 	memcpy(VITA_PACKET, buffer, bufferSz);
 	gc_cmd56_run(&gc_state, VITA_PACKET, GC_PACKET);
-	LOG("VITA: ");
-	LOG_BUFFER(VITA_PACKET, sizeof(VITA_PACKET));
+	PRINT_STR("VITA: ");
+	PRINT_BUFFER_LEN(VITA_PACKET, sizeof(VITA_PACKET));
 	return 0;
 }	
 
 int ksceSdifReadCmd56_Patched(void* instance, char* buffer, int bufferSz) {
 	memcpy(buffer, GC_PACKET, bufferSz);	
-	LOG("GC: ");
-	LOG_BUFFER(GC_PACKET, sizeof(GC_PACKET));
+	PRINT_STR("GC: ");
+	PRINT_BUFFER_LEN(GC_PACKET, sizeof(GC_PACKET));
 	return 0;
 }
 #endif
@@ -72,53 +72,53 @@ static tai_hook_ref_t checkCartHashHookRef;
 
 int ksceSblGcAuthMgrDrmBBCheckCartHash_Patched(const uint8_t* secret) {
 	uint8_t cart_hash[0x14];
-	LOG("ksceSblGcAuthMgrDrmBBGetCartSecret\n");
+	PRINT_STR("ksceSblGcAuthMgrDrmBBGetCartSecret\n");
 	
 	SHA1_CTX ctx;
 	sha1_init(&ctx);
 	sha1_update(&ctx, vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));
 	sha1_final(&ctx, cart_hash);
 	
-	LOG("input cart_hash: ");
-	LOG_BUFFER(secret, sizeof(cart_hash));
+	PRINT_STR("input cart_hash: ");
+	PRINT_BUFFER_LEN(secret, sizeof(cart_hash));
 
-	LOG("got cart_hash: ");
-	LOG_BUFFER(cart_hash, sizeof(cart_hash));
+	PRINT_STR("got cart_hash: ");
+	PRINT_BUFFER_LEN(cart_hash, sizeof(cart_hash));
 	
 	return memcmp(secret, cart_hash, sizeof(cart_hash));	
 }
 
 int ksceSblGcAuthMgrDrmBBGetCartSecret_Patched(uint8_t* secret) {
-	LOG("ksceSblGcAuthMgrDrmBBGetCartSecret\n");
+	PRINT_STR("ksceSblGcAuthMgrDrmBBGetCartSecret\n");
 	
 	SHA256_CTX ctx;
 	sha256_init(&ctx);
 	sha256_update(&ctx, (uint8_t*)&vita_state.per_cart_keys, sizeof(cmd56_keys));
 	sha256_final(&ctx, secret);
 	
-	LOG("cart_secret: ");
-	LOG_BUFFER(secret, sizeof(cmd56_keys));
+	PRINT_STR("cart_secret: ");
+	PRINT_BUFFER_LEN(secret, sizeof(cmd56_keys));
 	
 	return 0;
 }
 
 int ksceSblGcAuthMgrDrmBBClearCartSecret_Patched() {
-	LOG("ksceSblGcAuthMgrDrmBBClearCartSecret\n");
+	PRINT_STR("ksceSblGcAuthMgrDrmBBClearCartSecret\n");
 	memset(&vita_state, 0x00, sizeof(vita_state));
 	return 0;
 }
 
 
 void gc_send(const uint8_t* buf, uint32_t size) {
-	LOG("gc_send: ");
-	LOG_BUFFER(buf, size);
+	PRINT_STR("gc_send: ");
+	PRINT_BUFFER_LEN(buf, size);
 	
 	ksceSdifWriteCmd56(ctx, buf, size);
 }
 
 void gc_recv(uint8_t* buf, uint32_t size) {
-	LOG("gc_recv: ");
-	LOG_BUFFER(buf, size);
+	PRINT_STR("gc_recv: ");
+	PRINT_BUFFER_LEN(buf, size);
 	
 	ksceSdifReadCmd56(ctx, buf, size);
 }
@@ -126,7 +126,7 @@ void gc_recv(uint8_t* buf, uint32_t size) {
 int ksceSblGcAuthMgrGcAuthCartAuthentication_Patched(uint16_t key_id) {
 	ksceSblGcAuthMgrDrmBBClearCartSecret_Patched();
 	ctx = ksceSdifGetSdContextPartValidateMmc(1);
-	LOG("key_id: %x\n", key_id);
+	PRINT_STR("key_id: %x\n", key_id);
 	if(ctx != NULL) {
 		vita_cmd56_init(&vita_state, gc_send, gc_recv); // initalize VITA emu 
 		vita_state.allow_prototype_keys = 1;
@@ -134,15 +134,15 @@ int ksceSblGcAuthMgrGcAuthCartAuthentication_Patched(uint16_t key_id) {
 		int ret = vita_cmd56_run(&vita_state);
 		
 		if(ret == GC_AUTH_OK) {
-			LOG("vita_state.per_cart_keys.packet18_key\n");
-			LOG_BUFFER(vita_state.per_cart_keys.packet18_key, sizeof(vita_state.per_cart_keys.packet18_key));
+			PRINT_STR("vita_state.per_cart_keys.packet18_key\n");
+			PRINT_BUFFER_LEN(vita_state.per_cart_keys.packet18_key, sizeof(vita_state.per_cart_keys.packet18_key));
 
-			LOG("vita_state.per_cart_keys.packet20_key\n");
-			LOG_BUFFER(vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));		
+			PRINT_STR("vita_state.per_cart_keys.packet20_key\n");
+			PRINT_BUFFER_LEN(vita_state.per_cart_keys.packet20_key, sizeof(vita_state.per_cart_keys.packet20_key));		
 			return ret;
 		}
 		else{
-			LOG("ret = 0x%x\n", ret);
+			PRINT_STR("ret = 0x%x\n", ret);
 			ksceSblGcAuthMgrDrmBBClearCartSecret_Patched();
 		}
 	}
@@ -152,11 +152,11 @@ int ksceSblGcAuthMgrGcAuthCartAuthentication_Patched(uint16_t key_id) {
 
 #endif
 
-void _start() __attribute__ ((weak, alias ("module_start")));
+int _start(SceSize argc, const void *args) __attribute__ ((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *args)
 {
 #ifdef VERIFY_GC_C	
-	LOG("[started] GcAuthMgrEmu -- GC mode\n");
+	PRINT_STR("[started] GcAuthMgrEmu -- GC mode\n");
 
 	gc_cmd56_init(&gc_state, &keys); // initalize fake GC
 
@@ -166,7 +166,7 @@ int module_start(SceSize argc, const void *args)
 		0x96D306FA, // SceSdifForDriver
 		0xB0996641, // ksceSdifWriteCmd56
 		ksceSdifWriteCmd56_Patched);
-	LOG("[started] %x %x\n", sendHook, sendHookRef);
+	PRINT_STR("[started] %x %x\n", sendHook, sendHookRef);
 		
 	recvHook = taiHookFunctionImportForKernel(KERNEL_PID,
 		&recvHookRef, 
@@ -174,7 +174,7 @@ int module_start(SceSize argc, const void *args)
 		0x96D306FA, // SceSdifForDriver
 		0x134E06C4, // ksceSdifReadCmd56
 		ksceSdifReadCmd56_Patched);
-	LOG("[started] %x %x\n", recvHook, recvHookRef);
+	PRINT_STR("[started] %x %x\n", recvHook, recvHookRef);
 
 	// undo cobra blackfin patch
 	kernelGetSysTime = taiHookFunctionImportForKernel(KERNEL_PID,
@@ -183,11 +183,11 @@ int module_start(SceSize argc, const void *args)
 		0xE2C40624, // SceThreadmgrForDriver
 		0xF4EE4FA9, // sceKernelGetSystemTimeWide
 		sceKernelGetSystemTimeWide_Patched);
-	LOG("[started] %x %x\n", kernelGetSysTime, kernelGetSysTimeRef);
+	PRINT_STR("[started] %x %x\n", kernelGetSysTime, kernelGetSysTimeRef);
 #endif
 
 #ifdef VERIFY_VITA_C
-	LOG("[started] GcAuthMgrEmu -- VITA mode\n");
+	PRINT_STR("[started] GcAuthMgrEmu -- VITA mode\n");
 	
 	authHook = taiHookFunctionExportForKernel(KERNEL_PID,
 		&authHookRef, 
@@ -195,7 +195,7 @@ int module_start(SceSize argc, const void *args)
 		0xC6627F5E, // SceSblGcAuthMgrGcAuthForDriver
 		0x68781760, // ksceSblGcAuthMgrGcAuthCartAuthentication	
 		ksceSblGcAuthMgrGcAuthCartAuthentication_Patched);
-	LOG("[started] %x %x\n", authHook, authHookRef);
+	PRINT_STR("[started] %x %x\n", authHook, authHookRef);
 
 	getCartSecretHook = taiHookFunctionExportForKernel(KERNEL_PID,
 		&getCartSecretHookRef, 
@@ -203,7 +203,7 @@ int module_start(SceSize argc, const void *args)
 		0x1926B182, // SceSblGcAuthMgrDrmBBForDriver
 		0xBB70DDC0, // ksceSblGcAuthMgrDrmBBGetCartSecret	
 		ksceSblGcAuthMgrDrmBBGetCartSecret_Patched);
-	LOG("[started] %x %x\n", getCartSecretHook, getCartSecretHookRef);
+	PRINT_STR("[started] %x %x\n", getCartSecretHook, getCartSecretHookRef);
 
 	clearCartSecretHook = taiHookFunctionExportForKernel(KERNEL_PID,
 		&clearCartSecretHookRef, 
@@ -211,7 +211,7 @@ int module_start(SceSize argc, const void *args)
 		0x1926B182, // SceSblGcAuthMgrDrmBBForDriver
 		0xBB451E83, // ksceSblGcAuthMgrDrmBBClearCartSecret	
 		ksceSblGcAuthMgrDrmBBClearCartSecret_Patched);
-	LOG("[started] %x %x\n", clearCartSecretHook, clearCartSecretHookRef);
+	PRINT_STR("[started] %x %x\n", clearCartSecretHook, clearCartSecretHookRef);
 	
 	checkCartHashHook = taiHookFunctionExportForKernel(KERNEL_PID,
 		&checkCartHashHookRef, 
@@ -219,7 +219,7 @@ int module_start(SceSize argc, const void *args)
 		0x1926B182, // SceSblGcAuthMgrDrmBBForDriver
 		0x22FD5D23, // ksceSblGcAuthMgrDrmBBCheckCartHash	
 		ksceSblGcAuthMgrDrmBBCheckCartHash_Patched);
-	LOG("[started] %x %x\n", checkCartHashHook, checkCartHashHookRef);
+	PRINT_STR("[started] %x %x\n", checkCartHashHook, checkCartHashHookRef);
 #endif
 
 	return SCE_KERNEL_START_SUCCESS;

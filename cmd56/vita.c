@@ -371,14 +371,14 @@ void vita_cmd56_init(vita_cmd56_state* state, send_t send_func, recv_t recv_func
 	state->send = send_func;
 	state->recv = recv_func;
 										 // false, replicates the functionality of 1.04+ firmware, prototype carts not allowed.
-	state->allow_prototype_keys = false; // true, it acts more like a prototype <1.04 console, allowing prototype carts.
+	state->allow_prototype_keys = FALSE; // true, it acts more like a prototype <1.04 console, allowing prototype carts.
 }
 
-void vita_cmd56_init_ex(vita_cmd56_state* state, send_t send_func, recv_t recv_func, bool allow_prototype_keys) {
+void vita_cmd56_init_ex(vita_cmd56_state* state, send_t send_func, recv_t recv_func, boolean allow_prototype_keys) {
 	if (state == NULL) return;
 
 	vita_cmd56_init(state, send_func, recv_func);
-	state->allow_prototype_keys = true;
+	state->allow_prototype_keys = TRUE;
 }
 
 void vita_cmd56_get_keyid(vita_cmd56_state* state, cmd56_sm_keyid* key_id) {

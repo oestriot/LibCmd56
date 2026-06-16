@@ -41,10 +41,10 @@ typedef signed long long int int64_t;
 typedef unsigned long long int uint64_t;
 #endif
 
-typedef enum bool {
-    true = 1,
-    false = 0
-} bool;
+typedef enum boolean {
+    TRUE = 1,
+    FALSE = 0
+} boolean;
 
 #if defined(__GNUC__)
 typedef __SIZE_TYPE__ size_t;
