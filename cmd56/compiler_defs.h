@@ -6,6 +6,7 @@
 #ifndef COMPILER_DEFS_H
 #define COMPILER_DEFS_H 1
 
+#define HAVE_LIBC (defined(__GLIBC__) || defined(_MSC_VER))
 
 #ifdef __GNUC__
 #define PACK( declaration ) declaration __attribute__((__packed__))
@@ -23,22 +24,17 @@
 #define NULL ((void*)0)
 #endif
 
-#ifdef _MSC_VER
-typedef unsigned __int8 uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef __int32 int32_t;
-typedef unsigned __int64 uint64_t;
-typedef __int64 int64_t;
-#else 
-typedef signed char int8_t;
-typedef unsigned char uint8_t;
-typedef signed short int int16_t;
-typedef unsigned short int uint16_t;
-typedef signed int int32_t;
-typedef unsigned int uint32_t;
-typedef signed long long int int64_t;
-typedef unsigned long long int uint64_t;
+#if !HAVE_LIBC // if we dont have libc, specify our own versions of stdint variables.
+	typedef signed char int8_t;
+	typedef unsigned char uint8_t;
+	typedef signed short int int16_t;
+	typedef unsigned short int uint16_t;
+	typedef signed int int32_t;
+	typedef unsigned int uint32_t;
+	typedef signed long long int int64_t;
+	typedef unsigned long long int uint64_t;
+#else
+	#include <stdint.h>
 #endif
 
 typedef enum boolean {
@@ -65,7 +61,7 @@ typedef unsigned int     uintptr_t;
 #define inline __forceinline
 #endif
 
-
+#if !HAVE_LIBC // if you dont have libc, we have to provide our own ..
 static inline void* __impl_memcpy(void* buf, void const* src, size_t n) {
     for (size_t i = 0; i < n; i++) {
         ((uint8_t*)buf)[i] = ((uint8_t*)src)[i];
@@ -94,6 +90,9 @@ static inline int __impl_memcmp(void const* a, void const* b, size_t len) {
 #define memset __impl_memset
 #define memcpy __impl_memcpy
 #define memcmp __impl_memcmp
+#else // we have libc, so just use the default ones.
+#include <string.h>
+#endif
 
 #ifndef offsetof
 #define offsetof(st, m) ((size_t)&(((st*)0)->m))

@@ -1,9 +1,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
-#define _DEBUG 1
+#define LOGGING_ENABLED 1
 
 #include "../cmd56/gc.h"
 #include "../cmd56/vita.h"
@@ -19,13 +18,13 @@ static vita_cmd56_state vita_state;
 static uint8_t VITA_PACKET[0x200];
 static uint8_t GC_PACKET[0x200];
 
-void emu_send(char* buf, size_t size) {
+void emu_send(const uint8_t* buf, size_t size) {
 	memcpy(VITA_PACKET, buf, size);
 	PRINT_STR("(VITA -> GC): ");
 	PRINT_BUFFER_LEN(VITA_PACKET, sizeof(VITA_PACKET));
 }
 
-void emu_recv(char* buf, size_t size) {
+void emu_recv(uint8_t* buf, size_t size) {
 	gc_cmd56_run(&gc_state, VITA_PACKET, GC_PACKET);
 	memcpy(buf, GC_PACKET, size);
 	PRINT_STR("(GC -> VITA): ");
