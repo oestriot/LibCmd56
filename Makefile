@@ -6,11 +6,11 @@ OUTDIR = build
 LIBDIR = $(realpath ./$(OUTDIR))
 INCDIR = $(realpath ./cmd56)
 
-CFLAGS = -static -O3 -DLOGGING_ENABLED=1
+CFLAGS = -Os
 LDFLAGS = -lcmd56
 
 OBJ = cmd56/crypto/aes.o cmd56/crypto/aes_cmac.o cmd56/crypto/aes_cmac.o \
-      cmd56/cmd56.o cmd56/cmd56_sm.o cmd56/gc.o cmd56/vita.o
+      cmd56/cmd56.o cmd56/cmd56_sm.o cmd56/gc.o cmd56/vita.o cmd56/compiler_defs.o
 
 LIBS = libcmd56.a
 

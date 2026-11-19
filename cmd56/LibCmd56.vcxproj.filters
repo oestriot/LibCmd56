@@ -33,6 +33,9 @@
     <ClCompile Include="cmd56.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="compiler_defs.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="compiler_defs.h">
