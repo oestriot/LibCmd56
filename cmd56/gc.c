@@ -14,6 +14,7 @@
 void handle_cmd_start(cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	cmd56_response_start(request, response);
 	get_response(start_response);
+
 	state->lock_status = GC_LOCKED;
 
 	resp->start[0xD] = 0x1;
@@ -123,7 +124,7 @@ void handle_exchange_shared_random(cmd56_state* state, cmd56_request* request, c
 	}
 	else {
 		PRINT_STR("(GC) key_id from vita not acknowledged? (got: 0x%02X, expected: 0x%02X)\n", endian_big16(req->key_id), state->key_id);
-		cmd56_response_error(response, 0x11);
+		cmd56_response_error(response, ERR_INVALID_COMMAND);
 	}
 
 }
@@ -163,7 +164,7 @@ void handle_exchange_secondary_key_and_verify_session(cmd56_state* state, cmd56_
 		PRINT_BUFFER_LEN(&req->challenge_bytes, sizeof(shared_random));
 
 		state->lock_status = GC_LOCKED;
-		cmd56_response_error(response, 0xF1);
+		cmd56_response_error(response, ERR_SESSION_CHALLENGE_FAILED);
 	}
 }
 
@@ -219,7 +220,7 @@ void handle_p18key_and_cmac_signature(cmd56_state* state, cmd56_request* request
 		if ((req->type != 0x2 || req->type != 0x3) &&
 			(req->challenge_bytes[0x00] | 0x80) != req->challenge_bytes[0x00]) {
 			PRINT_STR("(GC) invalid p18 request, 0x1F is not 0x2 or 0x3, OR challenge_bytes[0] is not logical or'd with 0x80.\n");
-			cmd56_response_error(response, 0x11);
+			cmd56_response_error(response, ERR_INVALID_COMMAND);
 			return;
 		}
 	
@@ -252,7 +253,7 @@ void handle_p18key_and_cmac_signature(cmd56_state* state, cmd56_request* request
 		PRINT_BUFFER_LEN(req->cmac_signature, sizeof(req->cmac_signature));
 		PRINT_STR("(GC) got:");
 		PRINT_BUFFER_LEN(got_cmac, sizeof(got_cmac));
-		cmd56_response_error(response, 0xF4);
+		cmd56_response_error(response, ERR_CMAC_VALIDATION_FAILED);
 	}
 
 }
@@ -294,7 +295,7 @@ void handle_p20key_and_cmac_signature(cmd56_state* state, cmd56_request* request
 void handle_unknown_request(cmd56_state* state, cmd56_request* request, cmd56_response* response) {
 	PRINT_STR("(GC) Unknown command: 0x%02X\n", request->command);
 	cmd56_response_start(request, response);
-	cmd56_response_error(response, 0x11);
+	cmd56_response_error(response, ERR_INVALID_COMMAND);
 }
 
 void handle_request(cmd56_state* state, cmd56_request* request, cmd56_response* request_response) {
@@ -405,9 +406,24 @@ void gc_cmd56_run_in_place(cmd56_state* state, void* buffer) {
 void gc_cmd56_run(cmd56_state* state, const void* buffer, void* response) {
 	if (state == NULL) return;
 	cmd56_request* request = (cmd56_request*)buffer;
-	if(memcmp(request->magic, CMD56_MAGIC, sizeof(request->magic)) != 0) {
+	
+	if(memcmp(request->magic, CMD56_MAGIC, sizeof(request->magic)) != 0) { // magic
+		cmd56_response_error(response, ERR_INVALID_MAGIC);
 		return;
 	}
+	if (request->request_size > 0xC5) { // request size
+		cmd56_response_error(response, ERR_REQUEST_SIZE_TOO_BIG);
+		return;
+	}
+	if (request->request_size == 0) { // request size = 0
+		cmd56_response_error(response, ERR_REQUEST_SIZE_IS_ZERO);
+		return;
+	}
+	if (request->expected_response_size > 0x5C) { // response size.
+		cmd56_response_error(response, ERR_RESPONSE_TOO_LARGE);
+		return;
+	}
+
 
 	handle_request(state, (cmd56_request*)buffer, (cmd56_response*)response);
 }

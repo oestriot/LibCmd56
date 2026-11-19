@@ -22,6 +22,25 @@
 
 extern const uint8_t CMD56_MAGIC[0x20];
 
+typedef uint8_t cmd56_error_code;
+enum CMD56_ERRORS { 
+    ERR_SUCCESS = 0x00,
+    ERR_INVALID_MAGIC = 0x01,
+
+    ERR_INVALID_RESPONSE_CODE = 0x02, // mentioned in blackfin leaks needs verification; apparently the cart actually checks resp code;
+    ERR_NOT_INITALIZED = 0x03, // mentioned in blackfin leaks needs verification; apparently if not initalized or something?
+    ERR_TOO_MANY_REQUESTS = 0x04, // mentioned in blackfin leaks, apparently the cart blocks you if you fail auth too many times?
+    ERR_RESPONSE_TOO_LARGE = 0x05, 
+
+    ERR_INVALID_COMMAND = 0x11,
+    ERR_REQUEST_SIZE_TOO_BIG = 0x20,
+    ERR_REQUEST_SIZE_NO_MATCH = 0x21,
+    ERR_REQUEST_SIZE_IS_ZERO = 0x22,
+    ERR_SESSION_CHALLENGE_FAILED = 0xF1,
+    ERR_UNKNOWN_ERROR = 0xF2, // mentioned in blackfin leaks needs verification; apparently returned from some unused commands
+    ERR_CMAC_VALIDATION_FAILED = 0xF4,
+};
+
 typedef uint16_t cmd56_lock_status;
 enum CMD56_LOCK_STATUS_LIST {
     GC_LOCKED = 0xFF,
@@ -59,7 +78,7 @@ typedef PACK(struct cmd56_response {
     uint32_t response_code;
     uint32_t additional_data_size;
     uint16_t response_size;
-    uint8_t error_code;
+    cmd56_error_code error_code;
     uint8_t data[0x1f5];
 }) cmd56_response;
 
@@ -189,7 +208,7 @@ typedef struct cmd56_state {
 } cmd56_state;
 
 void cmd56_response_start(cmd56_request* packet_buffer, cmd56_response* response);
-void cmd56_response_error(cmd56_response* response, uint8_t error);
+void cmd56_response_error(cmd56_response* response, cmd56_error_code error);
 void cmd56_request_start(cmd56_request* request, cmd56_command cmd, uint16_t additional_data_size, uint32_t expected_response_size, uint32_t expected_response_code);
 
 #endif /* CMD56_H */

@@ -17,19 +17,19 @@ void cmd56_request_start(cmd56_request* request, cmd56_command cmd, uint16_t add
 	PRINT_STR("(CMD56) cmd56_request_start cmd=0x%x resp_code=0x%x\n", request->command, request->expected_response_code);
 }
 
-void cmd56_response_start(cmd56_request* request_buffer, cmd56_response* response) {
+void cmd56_response_start(cmd56_request* request, cmd56_response* response) {
 	memset(response, 0x00, sizeof(cmd56_response));
-	response->response_code = endian_little32(request_buffer->expected_response_code);
+	response->response_code = endian_little32(request->expected_response_code);
 	response->additional_data_size = endian_little32(0);
-	response->response_size = endian_big16((request_buffer->expected_response_size > sizeof(cmd56_response)) ? sizeof(cmd56_response) : (uint16_t)request_buffer->expected_response_size);
-	response->error_code = 0;
+	response->response_size = endian_big16((request->expected_response_size > sizeof(cmd56_response)) ? sizeof(cmd56_response) : (uint16_t)request->expected_response_size);
+	response->error_code = ERR_SUCCESS;
 }
 
-void cmd56_response_error(cmd56_response* response, uint8_t error) {
+void cmd56_response_error(cmd56_response* response, cmd56_error_code error) {
 	response->error_code = error;
 	response->response_code = endian_little32(error);
 
-	uint16_t size = endian_big16((uint16_t)response->response_size);
+	uint16_t size = endian_big16(response->response_size);
 	memset(response->data, 0xFF, size);
 	
 	PRINT_STR("(CMD56) cmd56_response_error error_code=0x%x\n", response->error_code);
